@@ -22,7 +22,7 @@ export default function BoatLogPage({ params }) {
   const [state, setState] = useState({ boats: [] });
   const [hasLoaded, setHasLoaded] = useState(false);
   const [drafts, setDrafts] = useState({});
-  const [commonDefects, setCommonDefects] = useState([]);
+  const [commonDefectsByArea, setCommonDefectsByArea] = useState({});
   const [reportDate, setReportDate] = useState(null);
   const [saveError, setSaveError] = useState("");
   const [boatNameDraft, setBoatNameDraft] = useState("");
@@ -63,22 +63,33 @@ export default function BoatLogPage({ params }) {
   useEffect(() => {
     let isMounted = true;
 
-    fetch("/common-defects.csv")
+    fetch("/area-common-defects.json")
       .then((response) => {
         if (!response.ok) {
-          throw new Error("Common defect CSV not found");
+          throw new Error("Area common defects not found");
         }
 
-        return response.text();
+        return response.json();
       })
-      .then((csvText) => {
+      .then((areaDefects) => {
         if (isMounted) {
-          setCommonDefects(parseCommonDefectsCsv(csvText));
+          setCommonDefectsByArea(areaDefects);
         }
       })
       .catch(() => {
         if (isMounted) {
-          setCommonDefects([]);
+          fetch("/common-defects.csv")
+            .then((response) => response.ok ? response.text() : "")
+            .then((csvText) => {
+              if (isMounted && csvText) {
+                setCommonDefectsByArea({ all: parseCommonDefectsCsv(csvText) });
+              }
+            })
+            .catch(() => {
+              if (isMounted) {
+                setCommonDefectsByArea({});
+              }
+            });
         }
       });
 
@@ -228,14 +239,19 @@ export default function BoatLogPage({ params }) {
     }
   }
 
-  function findCommonDefect(value) {
+  function getAreaCommonDefects(area) {
+    return commonDefectsByArea[area] || commonDefectsByArea.all || [];
+  }
+
+  function findCommonDefect(value, area) {
     const normalizedValue = normalizeDefectText(value);
 
-    return commonDefects.find((defect) => normalizeDefectText(defect.text) === normalizedValue);
+    return getAreaCommonDefects(area).find((defect) => normalizeDefectText(defect.text) === normalizedValue);
   }
 
   async function updateDefectText(defectId, value) {
-    const matchedDefect = findCommonDefect(value);
+    const currentDefect = boat.defects.find((defect) => defect.id === defectId);
+    const matchedDefect = findCommonDefect(value, currentDefect?.area);
 
     if (!value.trim()) {
       await updateDefect(defectId, "text", value);
@@ -261,14 +277,15 @@ export default function BoatLogPage({ params }) {
     }
   }
 
-  function getDefectSuggestions(value) {
+  function getDefectSuggestions(value, area) {
     const query = normalizeDefectText(value);
+    const areaDefects = getAreaCommonDefects(area);
 
     if (!query) {
-      return commonDefects.slice(0, 8);
+      return areaDefects.slice(0, 8);
     }
 
-    return commonDefects
+    return areaDefects
       .filter((defect) => normalizeDefectText(defect.text).includes(query))
       .slice(0, 8);
   }
@@ -393,7 +410,7 @@ export default function BoatLogPage({ params }) {
   }
 
   function updateDraft(area, field, value) {
-    const matchedDefect = field === "text" ? findCommonDefect(value) : null;
+    const matchedDefect = field === "text" ? findCommonDefect(value, area) : null;
 
     setDrafts((current) => ({
       ...current,
@@ -534,7 +551,7 @@ export default function BoatLogPage({ params }) {
                         <td>
                           <DefectSearchInput
                             value={defect.text}
-                            suggestions={getDefectSuggestions(defect.text)}
+                            suggestions={getDefectSuggestions(defect.text, area)}
                             onChange={(value) => updateDefectText(defect.id, value)}
                             onSelect={(selectedDefect) => selectExistingDefect(defect.id, selectedDefect)}
                             placeholder="Type a defect..."
@@ -560,7 +577,7 @@ export default function BoatLogPage({ params }) {
                         <td>
                           <DefectSearchInput
                             value={drafts[area]?.text || ""}
-                            suggestions={getDefectSuggestions(drafts[area]?.text || "")}
+                            suggestions={getDefectSuggestions(drafts[area]?.text || "", area)}
                             onChange={(value) => updateDraft(area, "text", value)}
                             onSelect={(selectedDefect) => selectDraftDefect(area, selectedDefect)}
                             onBlur={() => addDefectFromBlank(area)}
