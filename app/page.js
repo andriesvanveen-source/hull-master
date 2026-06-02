@@ -24,6 +24,37 @@ export default function HomePage() {
     );
   }, [state.boats]);
 
+  function getBoatUpdatedAt(boat) {
+    return boat.defects.reduce((latest, defect) => {
+      const defectDate = new Date(defect.createdAt || boat.createdAt || 0);
+      return defectDate > latest ? defectDate : latest;
+    }, new Date(boat.createdAt || 0));
+  }
+
+  function formatRelativeTime(date) {
+    const timestamp = date.getTime();
+
+    if (!timestamp) {
+      return "just now";
+    }
+
+    const diffMs = Date.now() - timestamp;
+    const minutes = Math.max(1, Math.floor(diffMs / 60000));
+
+    if (minutes < 60) {
+      return `${minutes}m ago`;
+    }
+
+    const hours = Math.floor(minutes / 60);
+
+    if (hours < 24) {
+      return `${hours}h ago`;
+    }
+
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  }
+
   function updateState(nextState) {
     setState(nextState);
     saveState(nextState);
@@ -59,100 +90,85 @@ export default function HomePage() {
   }
 
   return (
-    <div className="app-shell">
-      <header className="topbar">
-        <div className="brand">
-          <div className="brand-mark">HM</div>
-          <div>
-            <p className="brand-title">Hull Master</p>
-            <p className="brand-subtitle">Commissioning defect log</p>
+    <div className="register-shell">
+      <main className="register-page">
+        <header className="register-topbar">
+          <div className="register-brand">
+            <span className="register-anchor" aria-hidden="true">{"\u2693"}</span>
+            <span className="register-kicker">Commissioning Log</span>
           </div>
-        </div>
-        <div className="toolbar">
-          <span className="pill">{totals.boats} boats</span>
-          <span className="pill">{totals.defects} defects</span>
-        </div>
-      </header>
+          <p className="register-count">{totals.boats} {totals.boats === 1 ? "hull" : "hulls"}</p>
+        </header>
 
-      <main className="main">
-        <section className="page-head">
-          <span className="eyebrow">Boat Register</span>
-          <h1>Select or create a boat</h1>
-          <p className="muted">Create a hull record, then open it to log commissioning defects by discipline.</p>
+        <section className="register-hero">
+          <h1>Boats</h1>
+          <button
+            className="new-audit-button"
+            type="button"
+            onClick={() => {
+              setIsAddingBoat((current) => !current);
+              setError("");
+            }}
+          >
+            <span aria-hidden="true">+</span>
+            New audit
+          </button>
         </section>
 
-        <section className="boat-register">
-          <div className="panel">
-            <div className="panel-header">
-              <div>
-                <h2>Boats</h2>
-                <p className="muted">Open a boat to log and review defects.</p>
-              </div>
-              <button
-                className="add-boat-button"
-                type="button"
-                aria-label="Add boat"
-                onClick={() => {
-                  setIsAddingBoat((current) => !current);
-                  setError("");
-                }}
-              >
-                +
-              </button>
-            </div>
-            <div className="panel-body">
-              {isAddingBoat ? (
-                <form className="quick-boat-form" onSubmit={handleCreateBoat}>
-                  <input
-                    id="boatName"
-                    value={boatName}
-                    onChange={(event) => setBoatName(event.target.value)}
-                    placeholder="C2024"
-                    autoComplete="off"
-                    aria-label="Boat name"
-                    autoFocus
-                  />
-                  <button className="button" type="submit">Add</button>
-                  <button
-                    className="button secondary"
-                    type="button"
-                    onClick={() => {
-                      setBoatName("");
-                      setError("");
-                      setIsAddingBoat(false);
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  {error ? <p className="muted form-error">{error}</p> : null}
-                </form>
-              ) : null}
-              {state.boats.length === 0 ? (
-                <div className="empty">No boats yet. Create the first boat to start logging defects.</div>
-              ) : (
-                <div className="boat-list">
-                  {state.boats.map((boat) => {
-                    const disciplineCount = new Set(boat.defects.map((defect) => defect.discipline)).size;
+        {isAddingBoat ? (
+          <form className="quick-boat-form register-form" onSubmit={handleCreateBoat}>
+            <input
+              id="boatName"
+              value={boatName}
+              onChange={(event) => setBoatName(event.target.value)}
+              placeholder="C2024"
+              autoComplete="off"
+              aria-label="Boat name"
+              autoFocus
+            />
+            <button className="button" type="submit">Add</button>
+            <button
+              className="button secondary"
+              type="button"
+              onClick={() => {
+                setBoatName("");
+                setError("");
+                setIsAddingBoat(false);
+              }}
+            >
+              Cancel
+            </button>
+            {error ? <p className="muted form-error">{error}</p> : null}
+          </form>
+        ) : null}
 
-                    return (
-                      <article className="boat-card" key={boat.id}>
-                        <div>
-                          <div className="boat-name">{boat.name}</div>
-                          <div className="stat-row">
-                            <span className="pill">{boat.defects.length} defects</span>
-                            <span className="pill">{disciplineCount || 0} active disciplines</span>
-                          </div>
-                        </div>
-                        <Link className="button" href={`/boats/${boat.id}`}>Open log</Link>
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
+        <section className="boat-register" aria-label="Boat audits">
+          {state.boats.length === 0 ? (
+            <div className="empty register-empty">No boats yet. Create the first audit to start logging defects.</div>
+          ) : (
+            <div className="boat-list">
+              {state.boats.map((boat) => {
+                const updatedAt = getBoatUpdatedAt(boat);
+                const defectLabel = boat.defects.length === 1 ? "defect" : "defects";
+
+                return (
+                  <article className="boat-card" key={boat.id}>
+                    <Link className="boat-main-link" href={`/boats/${boat.id}`}>
+                      <span className="boat-name">{boat.name}</span>
+                      <span className="boat-meta">
+                        {boat.defects.length} {defectLabel}{" \u00b7 "}updated {formatRelativeTime(updatedAt)}
+                      </span>
+                    </Link>
+                    <Link className="pdf-button" href={`/boats/${boat.id}`}>
+                      <span className="pdf-icon" aria-hidden="true"></span>
+                      PDF
+                    </Link>
+                  </article>
+                );
+              })}
             </div>
-          </div>
+          )}
         </section>
-
       </main>
     </div>
   );
