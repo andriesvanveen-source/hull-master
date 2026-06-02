@@ -14,7 +14,8 @@ import {
   loadState,
   subscribeToStateChanges,
   updateBoatName,
-  updateDefectRecord
+  updateDefectRecord,
+  uploadDefectPhoto
 } from "../../../lib/storage";
 
 export default function BoatLogPage({ params }) {
@@ -247,6 +248,28 @@ export default function BoatLogPage({ params }) {
       setSaveError("");
     } catch (deleteError) {
       setSaveError(deleteError.message || "Could not delete defect from Supabase.");
+    }
+  }
+
+  async function uploadPhotoForDefect(defectId, file) {
+    if (!file) {
+      return;
+    }
+
+    try {
+      const photoUrl = await uploadDefectPhoto({
+        boatName: boat.name,
+        defectId,
+        file
+      });
+
+      updateDefectInState(defectId, (defect) => ({
+        ...defect,
+        photoUrl
+      }));
+      setSaveError("");
+    } catch (uploadError) {
+      setSaveError(uploadError.message || "Could not upload defect photo.");
     }
   }
 
@@ -541,9 +564,10 @@ export default function BoatLogPage({ params }) {
           <table className="sheet-table">
             <thead>
               <tr>
+                <th className="remove-col" aria-label="Remove defect"></th>
                 <th>Defect Description</th>
                 <th className="discipline-col">Discipline</th>
-                <th className="remove-col" aria-label="Remove defect"></th>
+                <th className="photo-col" aria-label="Defect photo"></th>
               </tr>
             </thead>
             <tbody>
@@ -553,10 +577,21 @@ export default function BoatLogPage({ params }) {
                 return (
                   <Fragment key={area}>
                     <tr className="area-row" key={`${area}-heading`}>
-                      <td colSpan="3">{area}</td>
+                      <td colSpan="4">{area}</td>
                     </tr>
                     {defects.map((defect) => (
                       <tr className="entry-row" key={defect.id}>
+                        <td className="remove-cell">
+                          <button
+                            className="remove-defect-button"
+                            type="button"
+                            onClick={() => removeDefect(defect.id)}
+                            aria-label={`Remove ${defect.text}`}
+                            title="Remove defect"
+                          >
+                            -
+                          </button>
+                        </td>
                         <td>
                           <DefectSearchInput
                             value={defect.text}
@@ -579,21 +614,42 @@ export default function BoatLogPage({ params }) {
                             ))}
                           </select>
                         </td>
-                        <td className="remove-cell">
-                          <button
-                            className="remove-defect-button"
-                            type="button"
-                            onClick={() => removeDefect(defect.id)}
-                            aria-label={`Remove ${defect.text}`}
-                            title="Remove defect"
+                        <td className="photo-cell">
+                          <label
+                            className={`photo-defect-button${defect.photoUrl ? " has-photo" : ""}`}
+                            title={defect.photoUrl ? "Replace photo" : "Add photo"}
+                            aria-label={defect.photoUrl ? `Replace photo for ${defect.text}` : `Add photo for ${defect.text}`}
                           >
-                            -
-                          </button>
+                            <span className="camera-icon" aria-hidden="true"></span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              capture="environment"
+                              onChange={(event) => {
+                                const file = event.target.files?.[0];
+                                uploadPhotoForDefect(defect.id, file);
+                                event.target.value = "";
+                              }}
+                            />
+                          </label>
+                          {defect.photoUrl ? (
+                            <a
+                              className="photo-view-link"
+                              href={defect.photoUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              title="View photo"
+                              aria-label={`View photo for ${defect.text}`}
+                            >
+                              View
+                            </a>
+                          ) : null}
                         </td>
                       </tr>
                     ))}
                     {drafts[area]?.isOpen ? (
                       <tr className="entry-row draft-row" key={`${area}-blank`}>
+                        <td className="remove-cell"></td>
                         <td>
                           <DefectSearchInput
                             value={drafts[area]?.text || ""}
@@ -620,11 +676,11 @@ export default function BoatLogPage({ params }) {
                             ))}
                           </select>
                         </td>
-                        <td className="remove-cell"></td>
+                        <td className="photo-cell"></td>
                       </tr>
                     ) : null}
                     <tr className="add-defect-row" key={`${area}-add`}>
-                      <td colSpan="3">
+                      <td colSpan="4">
                         <button className="add-defect-button" type="button" onClick={() => openDraft(area)}>
                           +
                         </button>
