@@ -820,10 +820,6 @@ textarea:focus {
   width: 54px;
 }
 
-.photo-col {
-  width: 76px;
-}
-
 .print-report-header,
 .print-table-wrap {
   display: none;
@@ -886,83 +882,6 @@ textarea:focus {
 
 .remove-defect-button:hover {
   background: #fff0ed;
-}
-
-.photo-cell {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  height: 38px;
-}
-
-.photo-defect-button {
-  position: relative;
-  display: inline-grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border: 1px solid #c9c0ae;
-  border-radius: 50%;
-  background: #fffdf8;
-  color: #0b2d49;
-}
-
-.photo-defect-button:hover,
-.photo-defect-button.has-photo {
-  background: #e7efed;
-  border-color: #8fb7b1;
-}
-
-.photo-defect-button input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.camera-icon {
-  position: relative;
-  width: 16px;
-  height: 12px;
-  border: 2px solid currentColor;
-  border-radius: 3px;
-}
-
-.camera-icon::before {
-  content: "";
-  position: absolute;
-  top: -5px;
-  left: 3px;
-  width: 6px;
-  height: 4px;
-  border: 2px solid currentColor;
-  border-bottom: 0;
-  border-radius: 3px 3px 0 0;
-}
-
-.camera-icon::after {
-  content: "";
-  position: absolute;
-  top: 2px;
-  left: 4px;
-  width: 4px;
-  height: 4px;
-  border: 1px solid currentColor;
-  border-radius: 50%;
-}
-
-.photo-view-link {
-  color: #0b2d49;
-  font-size: 11px;
-  font-weight: 800;
-  text-decoration: none;
-}
-
-.photo-view-link:hover {
-  text-decoration: underline;
 }
 
 .number-cell {
@@ -1350,9 +1269,5 @@ textarea:focus {
 
   .remove-col {
     width: 42px;
-  }
-
-  .photo-col {
-    width: 58px;
   }
 }
