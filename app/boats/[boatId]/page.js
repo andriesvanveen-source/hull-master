@@ -239,6 +239,17 @@ export default function BoatLogPage({ params }) {
     }
   }
 
+  async function removeDefect(defectId) {
+    removeDefectFromState(defectId);
+
+    try {
+      await deleteDefect(defectId);
+      setSaveError("");
+    } catch (deleteError) {
+      setSaveError(deleteError.message || "Could not delete defect from Supabase.");
+    }
+  }
+
   function getAreaCommonDefects(area) {
     return commonDefectsByArea[area] || commonDefectsByArea.all || [];
   }
@@ -532,6 +543,7 @@ export default function BoatLogPage({ params }) {
               <tr>
                 <th>Defect Description</th>
                 <th className="discipline-col">Discipline</th>
+                <th className="remove-col" aria-label="Remove defect"></th>
               </tr>
             </thead>
             <tbody>
@@ -541,7 +553,7 @@ export default function BoatLogPage({ params }) {
                 return (
                   <Fragment key={area}>
                     <tr className="area-row" key={`${area}-heading`}>
-                      <td colSpan="2">{area}</td>
+                      <td colSpan="3">{area}</td>
                     </tr>
                     {defects.map((defect) => (
                       <tr className="entry-row" key={defect.id}>
@@ -566,6 +578,17 @@ export default function BoatLogPage({ params }) {
                               <option key={item} value={item}>{item}</option>
                             ))}
                           </select>
+                        </td>
+                        <td className="remove-cell">
+                          <button
+                            className="remove-defect-button"
+                            type="button"
+                            onClick={() => removeDefect(defect.id)}
+                            aria-label={`Remove ${defect.text}`}
+                            title="Remove defect"
+                          >
+                            -
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -597,10 +620,11 @@ export default function BoatLogPage({ params }) {
                             ))}
                           </select>
                         </td>
+                        <td className="remove-cell"></td>
                       </tr>
                     ) : null}
                     <tr className="add-defect-row" key={`${area}-add`}>
-                      <td colSpan="2">
+                      <td colSpan="3">
                         <button className="add-defect-button" type="button" onClick={() => openDraft(area)}>
                           +
                         </button>

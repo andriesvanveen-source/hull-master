@@ -816,6 +816,10 @@ textarea:focus {
   text-align: center !important;
 }
 
+.remove-col {
+  width: 54px;
+}
+
 .print-report-header,
 .print-table-wrap {
   display: none;
@@ -857,6 +861,27 @@ textarea:focus {
 
 .add-defect-button:hover {
   background: #e3dac8;
+}
+
+.remove-cell {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.remove-defect-button {
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgba(180, 35, 24, 0.25);
+  border-radius: 50%;
+  background: #fffdf8;
+  color: var(--danger);
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.remove-defect-button:hover {
+  background: #fff0ed;
 }
 
 .number-cell {
@@ -1240,5 +1265,9 @@ textarea:focus {
 
   .discipline-col {
     width: 132px;
+  }
+
+  .remove-col {
+    width: 42px;
   }
 }
