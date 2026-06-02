@@ -635,6 +635,13 @@ textarea:focus {
   margin-bottom: 24px;
 }
 
+.log-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .back-link {
   color: #394b5c;
   font-size: 14px;
@@ -654,6 +661,31 @@ textarea:focus {
   color: #fff;
   font-size: 13px;
   font-weight: 800;
+}
+
+.export-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.64;
+}
+
+.export-button.secondary-action {
+  border: 1px solid #c9c0ae;
+  background: #fffdf8;
+  color: #0b2d49;
+}
+
+.export-button.secondary-action:hover {
+  background: #f7f0e3;
+}
+
+.export-button.danger-action {
+  border: 1px solid rgba(180, 35, 24, 0.28);
+  background: #fffdf8;
+  color: var(--danger);
+}
+
+.export-button.danger-action:hover {
+  background: #fff0ed;
 }
 
 .log-header {
@@ -681,6 +713,27 @@ textarea:focus {
   font-size: clamp(46px, 8vw, 64px);
   font-weight: 800;
   line-height: 0.9;
+}
+
+.boat-name-editor {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.boat-name-input {
+  width: min(270px, 100%);
+  height: auto;
+  min-height: 58px;
+  border-color: rgba(11, 45, 73, 0.18);
+  background: rgba(255, 253, 248, 0.82);
+  color: #0b2d49;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(38px, 7vw, 56px);
+  font-weight: 800;
+  line-height: 0.9;
+  text-transform: uppercase;
 }
 
 .autosave-note,
@@ -1144,6 +1197,15 @@ textarea:focus {
   .log-header {
     display: grid;
     gap: 12px;
+  }
+
+  .log-nav {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .log-actions {
+    justify-content: flex-start;
   }
 
   .autosave-note {

@@ -1,24 +1,32 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { normalizeDefectText, parseCommonDefectsCsv } from "../../../lib/commonDefects";
 import { BOAT_AREAS, DISCIPLINES } from "../../../lib/constants";
+import { exportBoatReport } from "../../../lib/pdfReport";
 import {
   createDefect,
+  deleteBoat,
   deleteDefect,
+  duplicateBoat,
   loadState,
   subscribeToStateChanges,
+  updateBoatName,
   updateDefectRecord
 } from "../../../lib/storage";
 
 export default function BoatLogPage({ params }) {
+  const router = useRouter();
   const [state, setState] = useState({ boats: [] });
   const [hasLoaded, setHasLoaded] = useState(false);
   const [drafts, setDrafts] = useState({});
   const [commonDefects, setCommonDefects] = useState([]);
   const [reportDate, setReportDate] = useState(null);
   const [saveError, setSaveError] = useState("");
+  const [boatNameDraft, setBoatNameDraft] = useState("");
+  const [isSavingBoat, setIsSavingBoat] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -80,6 +88,14 @@ export default function BoatLogPage({ params }) {
   }, []);
 
   const boat = state.boats.find((item) => item.id === params.boatId);
+  const activeBoatId = boat?.id;
+  const activeBoatName = boat?.name;
+
+  useEffect(() => {
+    if (activeBoatName) {
+      setBoatNameDraft(activeBoatName);
+    }
+  }, [activeBoatId, activeBoatName]);
 
   const areaRows = useMemo(() => {
     return BOAT_AREAS.reduce((acc, area) => {
@@ -280,153 +296,100 @@ export default function BoatLogPage({ params }) {
       document.activeElement.blur();
     }
 
-    const createdAt = new Date();
-    const safeBoatName = boat.name.replace(/[^a-z0-9-]+/gi, "-").replace(/^-|-$/g, "") || "hull";
-    const defectCount = boat.defects.filter((defect) => defect.text.trim()).length;
-    const { jsPDF } = await import("jspdf");
-    const { default: autoTable } = await import("jspdf-autotable");
-    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const generatedAt = createdAt.toLocaleString();
-    const tableRows = [];
+    try {
+      const createdAt = await exportBoatReport(boat);
+      setReportDate(createdAt);
+      setSaveError("");
+    } catch (exportError) {
+      setSaveError(exportError.message || "Could not export PDF report.");
+    }
+  }
 
-    BOAT_AREAS.forEach((area) => {
-      const defects = areaRows[area] || [];
+  async function saveBoatName(event) {
+    event.preventDefault();
+    const normalizedName = boatNameDraft.trim().toUpperCase();
 
-      tableRows.push([
-        {
-          content: area,
-          colSpan: 7,
-          styles: {
-            fillColor: [223, 232, 227],
-            fontStyle: "bold",
-            fontSize: 9.5,
-            textColor: [23, 33, 30],
-            halign: "left"
-          }
-        }
-      ]);
+    if (!normalizedName) {
+      setSaveError("Enter a boat number.");
+      return;
+    }
 
-      if (defects.length === 0) {
-        tableRows.push([
-          {
-            content: "- no defects logged -",
-            colSpan: 7,
-            styles: {
-              fontStyle: "italic",
-              halign: "center",
-              textColor: [110, 110, 110]
-            }
-          }
-        ]);
-        return;
-      }
+    if (!/^C\d{3,5}$/.test(normalizedName)) {
+      setSaveError("Use a hull name like C2024.");
+      return;
+    }
 
-      defects.forEach((defect) => {
-        tableRows.push([
-          String(rowNumbers[defect.id] || ""),
-          defect.text,
-          defect.discipline || "-",
-          "",
-          "",
-          "",
-          ""
-        ]);
-      });
-    });
+    if (state.boats.some((item) => item.id !== boat.id && item.name === normalizedName)) {
+      setSaveError(`${normalizedName} already exists.`);
+      return;
+    }
 
-    doc.setFillColor(11, 45, 73);
-    doc.rect(0, 0, pageWidth, 22, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
-    doc.text("Yacht Commissioning Audit", 12, 13);
-    doc.setFontSize(9);
-    doc.text("Hull Master", pageWidth - 12, 13, { align: "right" });
+    if (normalizedName === boat.name) {
+      setBoatNameDraft(normalizedName);
+      setSaveError("");
+      return;
+    }
 
-    doc.setTextColor(20, 28, 34);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.roundedRect(12, 29, pageWidth - 24, 28, 2, 2);
-    doc.setFont("helvetica", "bold");
-    doc.text("Hull Number", 18, 37);
-    doc.text("Report Date", 68, 37);
-    doc.text("Logged Defects", 18, 49);
-    doc.text("Report Type", 68, 49);
-    doc.setFont("helvetica", "normal");
-    doc.text(boat.name, 18, 43);
-    doc.text(generatedAt, 68, 43);
-    doc.text(String(defectCount), 18, 55);
-    doc.text("Commissioning Defect Audit", 68, 55);
+    setIsSavingBoat(true);
 
-    autoTable(doc, {
-      startY: 64,
-      head: [[
-        "#",
-        "Defect",
-        "Discipline",
-        "Team Member",
-        "Date",
-        "Team Leader",
-        "Commissioning Engineer"
-      ]],
-      body: tableRows,
-      theme: "grid",
-      tableLineColor: [130, 144, 139],
-      tableLineWidth: 0.25,
-      margin: { left: 12, right: 12, top: 30, bottom: 16 },
-      styles: {
-        font: "helvetica",
-        fontSize: 6.8,
-        cellPadding: 1.5,
-        lineColor: [130, 144, 139],
-        lineWidth: 0.25,
-        minCellHeight: 8,
-        textColor: [17, 17, 17],
-        valign: "middle"
-      },
-      headStyles: {
-        fillColor: [47, 58, 56],
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-        halign: "center",
-        lineColor: [130, 144, 139],
-        lineWidth: 0.25
-      },
-      columnStyles: {
-        0: { cellWidth: 8, halign: "center" },
-        1: { cellWidth: 62 },
-        2: { cellWidth: 18, halign: "center" },
-        3: { cellWidth: 25 },
-        4: { cellWidth: 18 },
-        5: { cellWidth: 25 },
-        6: { cellWidth: 30 }
-      },
-      didDrawPage: (data) => {
-        const pageNumber = doc.internal.getNumberOfPages();
+    try {
+      const updatedBoat = await updateBoatName(boat.id, normalizedName);
 
-        if (pageNumber > 1) {
-          doc.setFillColor(11, 45, 73);
-          doc.rect(0, 0, pageWidth, 16, "F");
-          doc.setTextColor(255, 255, 255);
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(10);
-          doc.text(`Yacht Commissioning Audit - Hull ${boat.name}`, 12, 10);
-        }
+      setState((current) => ({
+        boats: current.boats.map((item) => (
+          item.id === boat.id ? updatedBoat : item
+        ))
+      }));
+      setBoatNameDraft(updatedBoat.name);
+      setSaveError("");
+    } catch (updateError) {
+      setSaveError(updateError.message || "Could not update boat number.");
+    } finally {
+      setIsSavingBoat(false);
+    }
+  }
 
-        doc.setDrawColor(130, 144, 139);
-        doc.line(12, pageHeight - 11, pageWidth - 12, pageHeight - 11);
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(8);
-        doc.setTextColor(95, 103, 99);
-        doc.text(`Generated ${generatedAt}`, 12, pageHeight - 6);
-        doc.text(`Page ${data.pageNumber}`, pageWidth - 12, pageHeight - 6, { align: "right" });
-      }
-    });
+  async function deleteCurrentBoat() {
+    const confirmed = window.confirm("Are you sure you want to delete this boat?");
 
-    setReportDate(createdAt);
-    doc.save(`${safeBoatName}-commissioning-audit.pdf`);
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await deleteBoat(boat.id);
+      router.push("/");
+    } catch (deleteError) {
+      setSaveError(deleteError.message || "Could not delete boat.");
+    }
+  }
+
+  async function duplicateCurrentBoat() {
+    const suggestedName = boat.name.replace(/^C(\d+)$/, (_match, number) => `C${Number(number) + 1}`);
+    const nextName = window.prompt("Enter the new boat number for the duplicate:", suggestedName);
+
+    if (nextName === null) {
+      return;
+    }
+
+    const normalizedName = nextName.trim().toUpperCase();
+
+    if (!/^C\d{3,5}$/.test(normalizedName)) {
+      setSaveError("Use a hull name like C2024.");
+      return;
+    }
+
+    if (state.boats.some((item) => item.name === normalizedName)) {
+      setSaveError(`${normalizedName} already exists.`);
+      return;
+    }
+
+    try {
+      const nextBoat = await duplicateBoat(boat, normalizedName);
+      router.push(`/boats/${nextBoat.id}`);
+    } catch (duplicateError) {
+      setSaveError(duplicateError.message || "Could not duplicate boat.");
+    }
   }
 
   function updateDraft(area, field, value) {
@@ -516,7 +479,11 @@ export default function BoatLogPage({ params }) {
       <main className="log-page">
         <div className="log-nav">
           <Link className="back-link" href="/">{"<-"} All boats</Link>
-          <button className="export-button" type="button" onClick={exportReport}>Export PDF</button>
+          <div className="log-actions">
+            <button className="export-button secondary-action" type="button" onClick={duplicateCurrentBoat}>Duplicate</button>
+            <button className="export-button danger-action" type="button" onClick={deleteCurrentBoat}>Delete</button>
+            <button className="export-button" type="button" onClick={exportReport}>Export PDF</button>
+          </div>
         </div>
 
         <header className="print-report-header">
@@ -530,7 +497,17 @@ export default function BoatLogPage({ params }) {
         <header className="log-header">
           <div>
             <p className="log-kicker">Hull Number</p>
-            <h1 className="log-title">{boat.name}</h1>
+            <form className="boat-name-editor" onSubmit={saveBoatName}>
+              <input
+                className="boat-name-input"
+                value={boatNameDraft}
+                onChange={(event) => setBoatNameDraft(event.target.value)}
+                aria-label="Boat number"
+              />
+              <button className="export-button" type="submit" disabled={isSavingBoat}>
+                {isSavingBoat ? "Saving" : "Save"}
+              </button>
+            </form>
           </div>
           <p className="autosave-note">{saveError || "Auto-saves to Supabase as you type"}</p>
         </header>

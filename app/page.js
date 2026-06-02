@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { exportBoatReport } from "../lib/pdfReport";
 import { createBoat, loadState, subscribeToStateChanges } from "../lib/storage";
 
 export default function HomePage() {
@@ -116,6 +117,15 @@ export default function HomePage() {
     }
   }
 
+  async function handleExportBoatReport(boat) {
+    try {
+      await exportBoatReport(boat);
+      setError("");
+    } catch (exportError) {
+      setError(exportError.message || "Could not export PDF report.");
+    }
+  }
+
   return (
     <div className="register-shell">
       <main className="register-page">
@@ -189,10 +199,14 @@ export default function HomePage() {
                         {boat.defects.length} {defectLabel}{" \u00b7 "}updated {formatRelativeTime(updatedAt)}
                       </span>
                     </Link>
-                    <Link className="pdf-button" href={`/boats/${boat.id}`}>
+                    <button
+                      className="pdf-button"
+                      type="button"
+                      onClick={() => handleExportBoatReport(boat)}
+                    >
                       <span className="pdf-icon" aria-hidden="true"></span>
                       PDF
-                    </Link>
+                    </button>
                   </article>
                 );
               })}
