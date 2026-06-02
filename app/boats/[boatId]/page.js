@@ -4,7 +4,13 @@ import Link from "next/link";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { normalizeDefectText, parseCommonDefectsCsv } from "../../../lib/commonDefects";
 import { BOAT_AREAS, DISCIPLINES } from "../../../lib/constants";
-import { createDefect, loadState, saveState } from "../../../lib/storage";
+import {
+  createDefect,
+  deleteDefect,
+  loadState,
+  subscribeToStateChanges,
+  updateDefectRecord
+} from "../../../lib/storage";
 
 export default function BoatLogPage({ params }) {
   const [state, setState] = useState({ boats: [] });
@@ -12,11 +18,38 @@ export default function BoatLogPage({ params }) {
   const [drafts, setDrafts] = useState({});
   const [commonDefects, setCommonDefects] = useState([]);
   const [reportDate, setReportDate] = useState(null);
+  const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
-    setState(loadState());
-    setReportDate(new Date());
-    setHasLoaded(true);
+    let isMounted = true;
+
+    async function refreshState() {
+      try {
+        const nextState = await loadState();
+
+        if (isMounted) {
+          setState(nextState);
+          setSaveError("");
+        }
+      } catch (loadError) {
+        if (isMounted) {
+          setSaveError(loadError.message || "Could not load boat log from Supabase.");
+        }
+      } finally {
+        if (isMounted) {
+          setReportDate((current) => current || new Date());
+          setHasLoaded(true);
+        }
+      }
+    }
+
+    refreshState();
+    const unsubscribe = subscribeToStateChanges(refreshState);
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -75,69 +108,108 @@ export default function BoatLogPage({ params }) {
     return numbers;
   }, [boat]);
 
-  function updateState(nextState) {
-    setState(nextState);
-    saveState(nextState);
-  }
-
-  function addDefectFromBlank(area) {
-    const draft = drafts[area] || { text: "", discipline: "" };
-
-    if (!draft.text.trim()) {
-      return;
-    }
-
-    const nextDefect = createDefect({
-      text: draft.text,
-      discipline: draft.discipline,
-      area
-    });
-    const nextState = {
-      boats: state.boats.map((item) => {
+  function updateDefectInState(defectId, updater) {
+    setState((current) => ({
+      boats: current.boats.map((item) => {
         if (item.id !== params.boatId) {
           return item;
         }
 
         return {
           ...item,
-          defects: [...item.defects, nextDefect]
+          defects: item.defects.map((defect) => (
+            defect.id === defectId ? updater(defect) : defect
+          ))
         };
       })
-    };
-
-    updateState(nextState);
-    setDrafts((current) => ({
-      ...current,
-      [area]: { text: "", discipline: "" }
     }));
   }
 
-  function updateDefect(defectId, field, value) {
-    const nextState = {
-      boats: state.boats.map((item) => {
+  function removeDefectFromState(defectId) {
+    setState((current) => ({
+      boats: current.boats.map((item) => {
         if (item.id !== params.boatId) {
           return item;
         }
 
         return {
           ...item,
-          defects: item.defects
-            .map((defect) => {
-              if (defect.id !== defectId) {
-                return defect;
-              }
-
-              return {
-                ...defect,
-                [field]: value
-              };
-            })
-            .filter((defect) => defect.text.trim())
+          defects: item.defects.filter((defect) => defect.id !== defectId)
         };
       })
-    };
+    }));
+  }
 
-    updateState(nextState);
+  async function addDefectFromBlank(area) {
+    const draft = drafts[area] || { text: "", discipline: "" };
+
+    if (!draft.text.trim() || draft.isSaving) {
+      return;
+    }
+
+    setDrafts((current) => ({
+      ...current,
+      [area]: { ...draft, isSaving: true }
+    }));
+
+    try {
+      const nextDefect = await createDefect({
+        boatId: params.boatId,
+        text: draft.text,
+        discipline: draft.discipline,
+        area
+      });
+
+      setState((current) => ({
+        boats: current.boats.map((item) => {
+          if (item.id !== params.boatId) {
+            return item;
+          }
+
+          return {
+            ...item,
+            defects: [...item.defects, nextDefect]
+          };
+        })
+      }));
+      setDrafts((current) => ({
+        ...current,
+        [area]: { text: "", discipline: "" }
+      }));
+      setSaveError("");
+    } catch (createError) {
+      setDrafts((current) => ({
+        ...current,
+        [area]: { ...draft, isSaving: false, isOpen: true }
+      }));
+      setSaveError(createError.message || "Could not save defect to Supabase.");
+    }
+  }
+
+  async function updateDefect(defectId, field, value) {
+    if (field === "text" && !value.trim()) {
+      removeDefectFromState(defectId);
+
+      try {
+        await deleteDefect(defectId);
+        setSaveError("");
+      } catch (deleteError) {
+        setSaveError(deleteError.message || "Could not delete defect from Supabase.");
+      }
+      return;
+    }
+
+    updateDefectInState(defectId, (defect) => ({
+      ...defect,
+      [field]: value
+    }));
+
+    try {
+      await updateDefectRecord(defectId, { [field]: value });
+      setSaveError("");
+    } catch (updateError) {
+      setSaveError(updateError.message || "Could not update defect in Supabase.");
+    }
   }
 
   function findCommonDefect(value) {
@@ -146,35 +218,31 @@ export default function BoatLogPage({ params }) {
     return commonDefects.find((defect) => normalizeDefectText(defect.text) === normalizedValue);
   }
 
-  function updateDefectText(defectId, value) {
+  async function updateDefectText(defectId, value) {
     const matchedDefect = findCommonDefect(value);
 
-    const nextState = {
-      boats: state.boats.map((item) => {
-        if (item.id !== params.boatId) {
-          return item;
-        }
+    if (!value.trim()) {
+      await updateDefect(defectId, "text", value);
+      return;
+    }
 
-        return {
-          ...item,
-          defects: item.defects
-            .map((defect) => {
-              if (defect.id !== defectId) {
-                return defect;
-              }
-
-              return {
-                ...defect,
-                text: value,
-                discipline: matchedDefect?.discipline || defect.discipline
-              };
-            })
-            .filter((defect) => defect.text.trim())
-        };
-      })
+    const patch = {
+      text: value,
+      ...(matchedDefect?.discipline ? { discipline: matchedDefect.discipline } : {})
     };
 
-    updateState(nextState);
+    updateDefectInState(defectId, (defect) => ({
+      ...defect,
+      text: value,
+      discipline: matchedDefect?.discipline || defect.discipline
+    }));
+
+    try {
+      await updateDefectRecord(defectId, patch);
+      setSaveError("");
+    } catch (updateError) {
+      setSaveError(updateError.message || "Could not update defect in Supabase.");
+    }
   }
 
   function getDefectSuggestions(value) {
@@ -189,31 +257,22 @@ export default function BoatLogPage({ params }) {
       .slice(0, 8);
   }
 
-  function selectExistingDefect(defectId, selectedDefect) {
-    const nextState = {
-      boats: state.boats.map((item) => {
-        if (item.id !== params.boatId) {
-          return item;
-        }
+  async function selectExistingDefect(defectId, selectedDefect) {
+    updateDefectInState(defectId, (defect) => ({
+      ...defect,
+      text: selectedDefect.text,
+      discipline: selectedDefect.discipline || defect.discipline
+    }));
 
-        return {
-          ...item,
-          defects: item.defects.map((defect) => {
-            if (defect.id !== defectId) {
-              return defect;
-            }
-
-            return {
-              ...defect,
-              text: selectedDefect.text,
-              discipline: selectedDefect.discipline || defect.discipline
-            };
-          })
-        };
-      })
-    };
-
-    updateState(nextState);
+    try {
+      await updateDefectRecord(defectId, {
+        text: selectedDefect.text,
+        discipline: selectedDefect.discipline
+      });
+      setSaveError("");
+    } catch (updateError) {
+      setSaveError(updateError.message || "Could not update defect in Supabase.");
+    }
   }
 
   async function exportReport() {
@@ -443,7 +502,9 @@ export default function BoatLogPage({ params }) {
         </header>
         <main className="main">
           <div className="panel">
-            <div className="panel-body empty">Boat not found. Return to the boat register and select a boat.</div>
+            <div className="panel-body empty">
+              {saveError || "Boat not found. Return to the boat register and select a boat."}
+            </div>
           </div>
         </main>
       </div>
@@ -471,7 +532,7 @@ export default function BoatLogPage({ params }) {
             <p className="log-kicker">Hull Number</p>
             <h1 className="log-title">{boat.name}</h1>
           </div>
-          <p className="autosave-note">Auto-saves as you type</p>
+          <p className="autosave-note">{saveError || "Auto-saves to Supabase as you type"}</p>
         </header>
 
         <section className="sheet-table-wrap">

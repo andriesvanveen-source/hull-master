@@ -2,16 +2,44 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { createBoat, loadState, saveState } from "../lib/storage";
+import { createBoat, loadState, subscribeToStateChanges } from "../lib/storage";
 
 export default function HomePage() {
   const [state, setState] = useState({ boats: [] });
   const [boatName, setBoatName] = useState("");
   const [error, setError] = useState("");
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [isAddingBoat, setIsAddingBoat] = useState(false);
 
   useEffect(() => {
-    setState(loadState());
+    let isMounted = true;
+
+    async function refreshState() {
+      try {
+        const nextState = await loadState();
+
+        if (isMounted) {
+          setState(nextState);
+          setError("");
+        }
+      } catch (loadError) {
+        if (isMounted) {
+          setError(loadError.message || "Could not load boats from Supabase.");
+        }
+      } finally {
+        if (isMounted) {
+          setHasLoaded(true);
+        }
+      }
+    }
+
+    refreshState();
+    const unsubscribe = subscribeToStateChanges(refreshState);
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, []);
 
   const totals = useMemo(() => {
@@ -55,12 +83,7 @@ export default function HomePage() {
     return `${days}d ago`;
   }
 
-  function updateState(nextState) {
-    setState(nextState);
-    saveState(nextState);
-  }
-
-  function handleCreateBoat(event) {
+  async function handleCreateBoat(event) {
     event.preventDefault();
     const normalizedName = boatName.trim().toUpperCase();
 
@@ -79,14 +102,18 @@ export default function HomePage() {
       return;
     }
 
-    const nextState = {
-      boats: [createBoat(normalizedName), ...state.boats]
-    };
+    try {
+      const nextBoat = await createBoat(normalizedName);
 
-    updateState(nextState);
-    setBoatName("");
-    setError("");
-    setIsAddingBoat(false);
+      setState((current) => ({
+        boats: [nextBoat, ...current.boats]
+      }));
+      setBoatName("");
+      setError("");
+      setIsAddingBoat(false);
+    } catch (createError) {
+      setError(createError.message || "Could not create boat in Supabase.");
+    }
   }
 
   return (
@@ -115,6 +142,8 @@ export default function HomePage() {
           </button>
         </section>
 
+        {error ? <p className="muted form-error">{error}</p> : null}
+
         {isAddingBoat ? (
           <form className="quick-boat-form register-form" onSubmit={handleCreateBoat}>
             <input
@@ -138,12 +167,13 @@ export default function HomePage() {
             >
               Cancel
             </button>
-            {error ? <p className="muted form-error">{error}</p> : null}
           </form>
         ) : null}
 
         <section className="boat-register" aria-label="Boat audits">
-          {state.boats.length === 0 ? (
+          {!hasLoaded ? (
+            <div className="empty register-empty">Loading boats...</div>
+          ) : state.boats.length === 0 ? (
             <div className="empty register-empty">No boats yet. Create the first audit to start logging defects.</div>
           ) : (
             <div className="boat-list">
