@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { normalizeDefectText, parseCommonDefectsCsv } from "../../../lib/commonDefects";
-import { BOAT_AREAS, DISCIPLINES } from "../../../lib/constants";
+import { BOAT_AREAS, BOAT_NAME_PATTERN, DISCIPLINES } from "../../../lib/constants";
 import { exportBoatReport } from "../../../lib/pdfReport";
 import {
   createDefect,
@@ -282,12 +282,11 @@ export default function BoatLogPage({ params }) {
     const areaDefects = getAreaCommonDefects(area);
 
     if (!query) {
-      return areaDefects.slice(0, 8);
+      return areaDefects;
     }
 
     return areaDefects
-      .filter((defect) => normalizeDefectText(defect.text).includes(query))
-      .slice(0, 8);
+      .filter((defect) => normalizeDefectText(defect.text).includes(query));
   }
 
   async function selectExistingDefect(defectId, selectedDefect) {
@@ -331,8 +330,8 @@ export default function BoatLogPage({ params }) {
       return;
     }
 
-    if (!/^C\d{3,5}$/.test(normalizedName)) {
-      setSaveError("Use a hull name like C2024.");
+    if (!BOAT_NAME_PATTERN.test(normalizedName)) {
+      setSaveError("Use a hull name like C1001, C2001, B5001, B8001, B9001, or C5001.");
       return;
     }
 
@@ -391,8 +390,8 @@ export default function BoatLogPage({ params }) {
 
     const normalizedName = nextName.trim().toUpperCase();
 
-    if (!/^C\d{3,5}$/.test(normalizedName)) {
-      setSaveError("Use a hull name like C2024.");
+    if (!BOAT_NAME_PATTERN.test(normalizedName)) {
+      setSaveError("Use a hull name like C1001, C2001, B5001, B8001, B9001, or C5001.");
       return;
     }
 
@@ -520,10 +519,8 @@ export default function BoatLogPage({ params }) {
                 value={boatNameDraft}
                 onChange={(event) => setBoatNameDraft(event.target.value)}
                 aria-label="Boat number"
+                disabled={isSavingBoat}
               />
-              <button className="export-button" type="submit" disabled={isSavingBoat}>
-                {isSavingBoat ? "Saving" : "Save"}
-              </button>
             </form>
           </div>
           <p className="autosave-note">{saveError || "Auto-saves to Supabase as you type"}</p>

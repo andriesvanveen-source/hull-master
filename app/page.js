@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { BOAT_MODELS, BOAT_NAME_PATTERN } from "../lib/constants";
 import { exportBoatReport } from "../lib/pdfReport";
 import { createBoat, loadState, subscribeToStateChanges } from "../lib/storage";
 
@@ -11,6 +12,7 @@ export default function HomePage() {
   const [error, setError] = useState("");
   const [hasLoaded, setHasLoaded] = useState(false);
   const [isAddingBoat, setIsAddingBoat] = useState(false);
+  const [selectedModel, setSelectedModel] = useState("all");
 
   useEffect(() => {
     let isMounted = true;
@@ -53,6 +55,14 @@ export default function HomePage() {
     );
   }, [state.boats]);
 
+  const visibleBoats = useMemo(() => {
+    if (selectedModel === "all") {
+      return state.boats;
+    }
+
+    return state.boats.filter((boat) => boat.name.slice(0, 2) === selectedModel);
+  }, [selectedModel, state.boats]);
+
   function getBoatUpdatedAt(boat) {
     return boat.defects.reduce((latest, defect) => {
       const defectDate = new Date(defect.createdAt || boat.createdAt || 0);
@@ -93,8 +103,8 @@ export default function HomePage() {
       return;
     }
 
-    if (!/^C\d{3,5}$/.test(normalizedName)) {
-      setError("Use a hull name like C2024.");
+    if (!BOAT_NAME_PATTERN.test(normalizedName)) {
+      setError("Use a hull name like C1001, C2001, B5001, B8001, B9001, or C5001.");
       return;
     }
 
@@ -152,6 +162,21 @@ export default function HomePage() {
           </button>
         </section>
 
+        <div className="model-filter">
+          <label htmlFor="boatModelFilter">Model</label>
+          <select
+            id="boatModelFilter"
+            value={selectedModel}
+            onChange={(event) => setSelectedModel(event.target.value)}
+            aria-label="Filter boats by model"
+          >
+            <option value="all">All boats</option>
+            {BOAT_MODELS.map((model) => (
+              <option key={model} value={model}>{model}</option>
+            ))}
+          </select>
+        </div>
+
         {error ? <p className="muted form-error">{error}</p> : null}
 
         {isAddingBoat ? (
@@ -185,9 +210,11 @@ export default function HomePage() {
             <div className="empty register-empty">Loading boats...</div>
           ) : state.boats.length === 0 ? (
             <div className="empty register-empty">No boats yet. Create the first audit to start logging defects.</div>
+          ) : visibleBoats.length === 0 ? (
+            <div className="empty register-empty">No {selectedModel} boats found.</div>
           ) : (
             <div className="boat-list">
-              {state.boats.map((boat) => {
+              {visibleBoats.map((boat) => {
                 const updatedAt = getBoatUpdatedAt(boat);
                 const defectLabel = boat.defects.length === 1 ? "defect" : "defects";
 
