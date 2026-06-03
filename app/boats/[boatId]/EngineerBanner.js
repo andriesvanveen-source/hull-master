@@ -42,7 +42,19 @@ export default function EngineerBanner() {
   }, [boatId]);
 
   return (
-    <div className="engineer-page-banner">
+    <div
+      style={{
+        background: "#0b2d49",
+        color: "#fffdf8",
+        fontFamily: "Courier New, Courier, monospace",
+        fontSize: "12px",
+        fontWeight: 700,
+        letterSpacing: "0.08em",
+        padding: "10px 20px",
+        textAlign: "center",
+        textTransform: "uppercase"
+      }}
+    >
       Commissioning Engineer: {engineer}
     </div>
   );
