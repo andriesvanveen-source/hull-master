@@ -4,7 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { normalizeDefectText, parseCommonDefectsCsv } from "../../../lib/commonDefects";
-import { BOAT_AREAS, BOAT_NAME_PATTERN, COMMISSIONING_ENGINEER_PLACEHOLDER, DISCIPLINES } from "../../../lib/constants";
+import {
+  BOAT_NAME_PATTERN,
+  COMMON_DEFECT_AREAS,
+  COMMISSIONING_ENGINEER_PLACEHOLDER,
+  DISCIPLINES,
+  getBoatAreas
+} from "../../../lib/constants";
 import { exportBoatReport } from "../../../lib/pdfReport";
 import {
   createDefect,
@@ -13,6 +19,7 @@ import {
   duplicateBoat,
   loadState,
   subscribeToStateChanges,
+  updateBoatAreas,
   updateBoatCommissioningEngineer,
   updateBoatName,
   updateDefectRecord
@@ -28,8 +35,10 @@ export default function BoatLogPage({ params }) {
   const [saveError, setSaveError] = useState("");
   const [boatNameDraft, setBoatNameDraft] = useState("");
   const [commissioningEngineerDraft, setCommissioningEngineerDraft] = useState("");
+  const [newAreaName, setNewAreaName] = useState("");
   const [isSavingBoat, setIsSavingBoat] = useState(false);
   const [isSavingEngineer, setIsSavingEngineer] = useState(false);
+  const [isSavingAreas, setIsSavingAreas] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -105,6 +114,11 @@ export default function BoatLogPage({ params }) {
   const activeBoatId = boat?.id;
   const activeBoatName = boat?.name;
   const activeCommissioningEngineer = boat?.commissioningEngineer || "";
+  const boatAreas = useMemo(() => getBoatAreas(boat), [boat]);
+  const areaOptions = useMemo(() => {
+    const fromCommonDefects = Object.keys(commonDefectsByArea).filter((area) => area !== "all");
+    return [...new Set([...COMMON_DEFECT_AREAS, ...fromCommonDefects, ...boatAreas])];
+  }, [boatAreas, commonDefectsByArea]);
 
   useEffect(() => {
     if (activeBoatName) {
@@ -119,11 +133,11 @@ export default function BoatLogPage({ params }) {
   }, [activeBoatId, activeCommissioningEngineer]);
 
   const areaRows = useMemo(() => {
-    return BOAT_AREAS.reduce((acc, area) => {
+    return boatAreas.reduce((acc, area) => {
       acc[area] = boat ? boat.defects.filter((defect) => defect.area === area) : [];
       return acc;
     }, {});
-  }, [boat]);
+  }, [boat, boatAreas]);
 
   const rowNumbers = useMemo(() => {
     if (!boat) {
@@ -133,7 +147,7 @@ export default function BoatLogPage({ params }) {
     let current = 1;
     const numbers = {};
 
-    BOAT_AREAS.forEach((area) => {
+    boatAreas.forEach((area) => {
       boat.defects
         .filter((defect) => defect.area === area && defect.text.trim())
         .forEach((defect) => {
@@ -143,7 +157,7 @@ export default function BoatLogPage({ params }) {
     });
 
     return numbers;
-  }, [boat]);
+  }, [boat, boatAreas]);
 
   function updateBoatInState(updatedBoat) {
     setState((current) => ({
@@ -183,6 +197,59 @@ export default function BoatLogPage({ params }) {
         };
       })
     }));
+  }
+
+  async function saveBoatAreas(nextAreas) {
+    setIsSavingAreas(true);
+
+    try {
+      const updatedBoat = await updateBoatAreas(boat.id, nextAreas);
+      updateBoatInState(updatedBoat);
+      setSaveError("");
+      return updatedBoat;
+    } catch (updateError) {
+      setSaveError(updateError.message || "Could not update boat areas.");
+      return null;
+    } finally {
+      setIsSavingAreas(false);
+    }
+  }
+
+  async function addArea(event) {
+    event.preventDefault();
+    const normalizedArea = newAreaName.trim();
+
+    if (!normalizedArea) {
+      setSaveError("Enter an area name.");
+      return;
+    }
+
+    if (boatAreas.some((area) => area.toLowerCase() === normalizedArea.toLowerCase())) {
+      setSaveError(`${normalizedArea} is already on this boat.`);
+      return;
+    }
+
+    const updatedBoat = await saveBoatAreas([...boatAreas, normalizedArea]);
+
+    if (updatedBoat) {
+      setNewAreaName("");
+    }
+  }
+
+  async function removeArea(area) {
+    const defects = areaRows[area] || [];
+
+    if (defects.length > 0) {
+      setSaveError("Remove this area's defects before removing the area.");
+      return;
+    }
+
+    if (boatAreas.length <= 1) {
+      setSaveError("A boat needs at least one area.");
+      return;
+    }
+
+    await saveBoatAreas(boatAreas.filter((item) => item !== area));
   }
 
   async function addDefectFromBlank(area) {
@@ -589,6 +656,23 @@ export default function BoatLogPage({ params }) {
           <p className="autosave-note">{saveError || "Auto-saves to Supabase as you type"}</p>
         </header>
 
+        <form className="quick-boat-form" onSubmit={addArea} style={{ marginBottom: "14px" }}>
+          <input
+            list="boatAreaOptions"
+            value={newAreaName}
+            onChange={(event) => setNewAreaName(event.target.value)}
+            placeholder="Add area"
+            aria-label="Add area"
+            disabled={isSavingAreas}
+          />
+          <datalist id="boatAreaOptions">
+            {areaOptions.map((area) => (
+              <option key={area} value={area} />
+            ))}
+          </datalist>
+          <button className="button" type="submit" disabled={isSavingAreas}>Add area</button>
+        </form>
+
         <section className="sheet-table-wrap">
           <table className="sheet-table">
             <thead>
@@ -599,13 +683,36 @@ export default function BoatLogPage({ params }) {
               </tr>
             </thead>
             <tbody>
-              {BOAT_AREAS.map((area) => {
+              {boatAreas.map((area) => {
                 const defects = areaRows[area] || [];
 
                 return (
                   <Fragment key={area}>
                     <tr className="area-row" key={`${area}-heading`}>
-                      <td colSpan="3">{area}</td>
+                      <td colSpan="3">
+                        <span>{area}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeArea(area)}
+                          disabled={isSavingAreas || defects.length > 0 || boatAreas.length <= 1}
+                          title={defects.length > 0 ? "Remove this area's defects before removing the area" : "Remove area"}
+                          style={{
+                            float: "right",
+                            minHeight: "24px",
+                            border: "1px solid rgba(255,255,255,0.5)",
+                            borderRadius: "999px",
+                            padding: "0 10px",
+                            background: "rgba(255,255,255,0.12)",
+                            color: "inherit",
+                            fontFamily: "Arial, Helvetica, sans-serif",
+                            fontSize: "12px",
+                            fontWeight: 800,
+                            opacity: defects.length > 0 || boatAreas.length <= 1 ? 0.45 : 1
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </td>
                     </tr>
                     {defects.map((defect) => (
                       <tr className="entry-row" key={defect.id}>
@@ -703,7 +810,7 @@ export default function BoatLogPage({ params }) {
               </tr>
             </thead>
             <tbody>
-              {BOAT_AREAS.map((area) => {
+              {boatAreas.map((area) => {
                 const defects = areaRows[area] || [];
 
                 return (
