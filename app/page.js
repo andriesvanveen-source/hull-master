@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { BOAT_MODELS, BOAT_NAME_PATTERN, COMMISSIONING_ENGINEER_PLACEHOLDER } from "../lib/constants";
+import {
+  BOAT_MODELS,
+  BOAT_NAME_PATTERN,
+  COMMISSIONING_ENGINEER_PLACEHOLDER,
+  COMMISSIONING_ENGINEERS
+} from "../lib/constants";
 import { exportBoatReport } from "../lib/pdfReport";
 import { createBoat, loadState, subscribeToStateChanges } from "../lib/storage";
 
@@ -195,12 +200,18 @@ export default function HomePage() {
             />
             <input
               id="commissioningEngineer"
+              list="commissioningEngineerOptions"
               value={commissioningEngineer}
               onChange={(event) => setCommissioningEngineer(event.target.value)}
               placeholder={COMMISSIONING_ENGINEER_PLACEHOLDER}
               autoComplete="name"
               aria-label="Commissioning engineer"
             />
+            <datalist id="commissioningEngineerOptions">
+              {COMMISSIONING_ENGINEERS.map((engineer) => (
+                <option key={engineer} value={engineer} />
+              ))}
+            </datalist>
             <button className="button" type="submit">Add</button>
             <button
               className="button secondary"
