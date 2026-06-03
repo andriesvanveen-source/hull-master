@@ -27,13 +27,37 @@ export default function BoatLayout({ children }) {
         dangerouslySetInnerHTML={{
           __html: `
             (() => {
+              const normalise = (value) => value.trim().toLowerCase();
+
               const applyEngineerList = () => {
                 const input = document.querySelector('input[aria-label="Commissioning engineer"]');
                 if (input) input.setAttribute('list', 'commissioningEngineerOptions');
               };
 
-              applyEngineerList();
-              new MutationObserver(applyEngineerList).observe(document.body, { childList: true, subtree: true });
+              const filterExistingAreaOptions = () => {
+                const list = document.getElementById('boatAreaOptions');
+                if (!list) return;
+
+                const existingAreas = new Set(
+                  Array.from(document.querySelectorAll('.area-row td span:first-child'))
+                    .map((item) => normalise(item.textContent || ''))
+                    .filter(Boolean)
+                );
+
+                Array.from(list.options).forEach((option) => {
+                  if (existingAreas.has(normalise(option.value))) {
+                    option.remove();
+                  }
+                });
+              };
+
+              const applyEnhancements = () => {
+                applyEngineerList();
+                filterExistingAreaOptions();
+              };
+
+              applyEnhancements();
+              new MutationObserver(applyEnhancements).observe(document.body, { childList: true, subtree: true });
             })();
           `
         }}
