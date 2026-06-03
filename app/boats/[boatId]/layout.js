@@ -28,35 +28,60 @@ export default function BoatLayout({ children }) {
           __html: `
             (() => {
               const normalise = (value) => value.trim().toLowerCase();
+              let cachedAreaValues = [];
+
+              const getExistingAreas = () => new Set(
+                Array.from(document.querySelectorAll('.area-row td > span'))
+                  .map((item) => normalise(item.textContent || ''))
+                  .filter(Boolean)
+              );
+
+              const captureAreaValues = () => {
+                const list = document.getElementById('boatAreaOptions');
+                if (!list || cachedAreaValues.length > 0) return;
+                cachedAreaValues = Array.from(list.options).map((option) => option.value).filter(Boolean);
+              };
+
+              const rebuildAreaOptions = () => {
+                const list = document.getElementById('boatAreaOptions');
+                if (!list) return;
+
+                captureAreaValues();
+                const existingAreas = getExistingAreas();
+                const availableAreas = cachedAreaValues.filter((area) => !existingAreas.has(normalise(area)));
+
+                list.innerHTML = '';
+                availableAreas.forEach((area) => {
+                  const option = document.createElement('option');
+                  option.value = area;
+                  list.appendChild(option);
+                });
+              };
 
               const applyEngineerList = () => {
                 const input = document.querySelector('input[aria-label="Commissioning engineer"]');
                 if (input) input.setAttribute('list', 'commissioningEngineerOptions');
               };
 
-              const filterExistingAreaOptions = () => {
-                const list = document.getElementById('boatAreaOptions');
-                if (!list) return;
+              const applyAreaHandlers = () => {
+                const input = document.querySelector('input[aria-label="Add area"]');
+                if (!input || input.dataset.areaFilterReady) return;
 
-                const existingAreas = new Set(
-                  Array.from(document.querySelectorAll('.area-row td span:first-child'))
-                    .map((item) => normalise(item.textContent || ''))
-                    .filter(Boolean)
-                );
-
-                Array.from(list.options).forEach((option) => {
-                  if (existingAreas.has(normalise(option.value))) {
-                    option.remove();
-                  }
-                });
+                input.dataset.areaFilterReady = 'true';
+                input.addEventListener('pointerdown', rebuildAreaOptions, true);
+                input.addEventListener('focus', rebuildAreaOptions, true);
+                input.addEventListener('input', rebuildAreaOptions, true);
               };
 
               const applyEnhancements = () => {
                 applyEngineerList();
-                filterExistingAreaOptions();
+                rebuildAreaOptions();
+                applyAreaHandlers();
               };
 
               applyEnhancements();
+              window.setTimeout(applyEnhancements, 200);
+              window.setTimeout(applyEnhancements, 800);
               new MutationObserver(applyEnhancements).observe(document.body, { childList: true, subtree: true });
             })();
           `
