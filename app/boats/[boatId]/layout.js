@@ -27,62 +27,13 @@ export default function BoatLayout({ children }) {
         dangerouslySetInnerHTML={{
           __html: `
             (() => {
-              const normalise = (value) => value.trim().toLowerCase();
-              let cachedAreaValues = [];
-
-              const getExistingAreas = () => new Set(
-                Array.from(document.querySelectorAll('.area-row td > span'))
-                  .map((item) => normalise(item.textContent || ''))
-                  .filter(Boolean)
-              );
-
-              const captureAreaValues = () => {
-                const list = document.getElementById('boatAreaOptions');
-                if (!list || cachedAreaValues.length > 0) return;
-                cachedAreaValues = Array.from(list.options).map((option) => option.value).filter(Boolean);
-              };
-
-              const rebuildAreaOptions = () => {
-                const list = document.getElementById('boatAreaOptions');
-                if (!list) return;
-
-                captureAreaValues();
-                const existingAreas = getExistingAreas();
-                const availableAreas = cachedAreaValues.filter((area) => !existingAreas.has(normalise(area)));
-
-                list.innerHTML = '';
-                availableAreas.forEach((area) => {
-                  const option = document.createElement('option');
-                  option.value = area;
-                  list.appendChild(option);
-                });
-              };
-
               const applyEngineerList = () => {
                 const input = document.querySelector('input[aria-label="Commissioning engineer"]');
                 if (input) input.setAttribute('list', 'commissioningEngineerOptions');
               };
 
-              const applyAreaHandlers = () => {
-                const input = document.querySelector('input[aria-label="Add area"]');
-                if (!input || input.dataset.areaFilterReady) return;
-
-                input.dataset.areaFilterReady = 'true';
-                input.addEventListener('pointerdown', rebuildAreaOptions, true);
-                input.addEventListener('focus', rebuildAreaOptions, true);
-                input.addEventListener('input', rebuildAreaOptions, true);
-              };
-
-              const applyEnhancements = () => {
-                applyEngineerList();
-                rebuildAreaOptions();
-                applyAreaHandlers();
-              };
-
-              applyEnhancements();
-              window.setTimeout(applyEnhancements, 200);
-              window.setTimeout(applyEnhancements, 800);
-              new MutationObserver(applyEnhancements).observe(document.body, { childList: true, subtree: true });
+              applyEngineerList();
+              new MutationObserver(applyEngineerList).observe(document.body, { childList: true, subtree: true });
             })();
           `
         }}
