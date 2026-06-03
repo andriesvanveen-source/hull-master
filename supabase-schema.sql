@@ -22,25 +22,10 @@ create table if not exists public.defects (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint defects_text_not_blank check (length(btrim(text)) > 0),
+  constraint defects_area_not_blank check (length(btrim(area)) > 0),
   constraint defects_discipline_allowed check (
     discipline is null
     or discipline in ('PLUM', 'ELEC', 'MECH', 'FA', 'DECK', 'CARP')
-  ),
-  constraint defects_area_allowed check (
-    area in (
-      'Saloon',
-      'Aft Cockpit',
-      'Fwd Cockpit Lounge & Deck',
-      'Stbd Engine',
-      'Port Engine',
-      'Stbd Fwd Cabin & Heads',
-      'Stbd Mid Cabin & Heads',
-      'Stbd Aft Cabin & Heads',
-      'Port Fwd Cabin & Heads',
-      'Port Mid Cabin & Heads',
-      'Port Aft Cabin & Heads',
-      'Crew Cabin'
-    )
   )
 );
 
@@ -93,6 +78,7 @@ as $$
 begin
   new.text = btrim(new.text);
   new.discipline = nullif(btrim(new.discipline), '');
+  new.area = btrim(new.area);
   return new;
 end;
 $$;

@@ -9,7 +9,10 @@ import {
   COMMON_DEFECT_AREAS,
   COMMISSIONING_ENGINEER_PLACEHOLDER,
   DISCIPLINES,
-  getBoatAreas
+  GENERAL_AREA,
+  getBoatAreas,
+  isGeneralArea,
+  orderBoatAreas
 } from "../../../lib/constants";
 import { exportBoatReport } from "../../../lib/pdfReport";
 import {
@@ -35,6 +38,7 @@ export default function BoatLogPage({ params }) {
   const [loadedFullDefectAreas, setLoadedFullDefectAreas] = useState({});
   const [reportDate, setReportDate] = useState(null);
   const [saveError, setSaveError] = useState("");
+  const [editingDefectId, setEditingDefectId] = useState(null);
   const [boatNameDraft, setBoatNameDraft] = useState("");
   const [commissioningEngineerDraft, setCommissioningEngineerDraft] = useState("");
   const [newAreaName, setNewAreaName] = useState("");
@@ -197,7 +201,7 @@ export default function BoatLogPage({ params }) {
     let current = 1;
     const numbers = {};
 
-    boatAreas.forEach((area) => {
+    boatAreas.filter((area) => !isGeneralArea(area)).forEach((area) => {
       boat.defects
         .filter((defect) => defect.area === area && defect.text.trim())
         .forEach((defect) => {
@@ -253,7 +257,7 @@ export default function BoatLogPage({ params }) {
     setIsSavingAreas(true);
 
     try {
-      const updatedBoat = await updateBoatAreas(boat.id, nextAreas);
+      const updatedBoat = await updateBoatAreas(boat.id, orderBoatAreas(nextAreas));
       updateBoatInState(updatedBoat);
       setSaveError("");
       return updatedBoat;
@@ -290,6 +294,11 @@ export default function BoatLogPage({ params }) {
   async function removeArea(area) {
     const defects = areaRows[area] || [];
 
+    if (isGeneralArea(area)) {
+      setSaveError(`${GENERAL_AREA} must stay at the bottom of every boat.`);
+      return;
+    }
+
     if (defects.length > 0) {
       setSaveError("Remove this area's defects before removing the area.");
       return;
@@ -303,17 +312,24 @@ export default function BoatLogPage({ params }) {
     await saveBoatAreas(boatAreas.filter((item) => item !== area));
   }
 
-  async function addDefectFromBlank(area) {
-    const draft = drafts[area] || { text: "", discipline: "" };
+  async function saveDraftDefect(area, draftInput, options = {}) {
+    const draft = draftInput || drafts[area] || { text: "", discipline: "" };
 
     if (!draft.text.trim() || draft.isSaving) {
       return;
     }
 
-    setDrafts((current) => ({
-      ...current,
-      [area]: { ...draft, isSaving: true }
-    }));
+    if (options.closeImmediately) {
+      setDrafts((current) => ({
+        ...current,
+        [area]: { text: "", discipline: "" }
+      }));
+    } else {
+      setDrafts((current) => ({
+        ...current,
+        [area]: { ...draft, isSaving: true }
+      }));
+    }
 
     try {
       const nextDefect = await createDefect({
@@ -349,6 +365,10 @@ export default function BoatLogPage({ params }) {
     }
   }
 
+  async function addDefectFromBlank(area) {
+    await saveDraftDefect(area);
+  }
+
   async function updateDefect(defectId, field, value) {
     if (field === "text" && !value.trim()) {
       removeDefectFromState(defectId);
@@ -376,6 +396,7 @@ export default function BoatLogPage({ params }) {
   }
 
   async function removeDefect(defectId) {
+    setEditingDefectId((current) => (current === defectId ? null : current));
     removeDefectFromState(defectId);
 
     try {
@@ -448,6 +469,7 @@ export default function BoatLogPage({ params }) {
         text: selectedDefect.text,
         discipline: selectedDefect.discipline
       });
+      setEditingDefectId(null);
       setSaveError("");
     } catch (updateError) {
       setSaveError(updateError.message || "Could not update defect in Supabase.");
@@ -590,15 +612,14 @@ export default function BoatLogPage({ params }) {
     }));
   }
 
-  function selectDraftDefect(area, selectedDefect) {
-    setDrafts((current) => ({
-      ...current,
-      [area]: {
-        text: selectedDefect.text,
-        discipline: selectedDefect.discipline || current[area]?.discipline || "",
-        isOpen: true
-      }
-    }));
+  async function selectDraftDefect(area, selectedDefect) {
+    const selectedDraft = {
+      text: selectedDefect.text,
+      discipline: selectedDefect.discipline || drafts[area]?.discipline || "",
+      isOpen: true
+    };
+
+    await saveDraftDefect(area, selectedDraft, { closeImmediately: true });
   }
 
   function openDraft(area) {
@@ -719,6 +740,7 @@ export default function BoatLogPage({ params }) {
             <tbody>
               {boatAreas.map((area) => {
                 const defects = areaRows[area] || [];
+                const isPinnedGeneralArea = isGeneralArea(area);
 
                 return (
                   <Fragment key={area}>
@@ -728,8 +750,8 @@ export default function BoatLogPage({ params }) {
                         <button
                           type="button"
                           onClick={() => removeArea(area)}
-                          disabled={isSavingAreas || defects.length > 0 || boatAreas.length <= 1}
-                          title={defects.length > 0 ? "Remove this area's defects before removing the area" : "Remove area"}
+                          disabled={isSavingAreas || isPinnedGeneralArea || defects.length > 0 || boatAreas.length <= 1}
+                          title={isPinnedGeneralArea ? `${GENERAL_AREA} always stays at the bottom` : defects.length > 0 ? "Remove this area's defects before removing the area" : "Remove area"}
                           style={{
                             float: "right",
                             minHeight: "24px",
@@ -741,7 +763,7 @@ export default function BoatLogPage({ params }) {
                             fontFamily: "Arial, Helvetica, sans-serif",
                             fontSize: "12px",
                             fontWeight: 800,
-                            opacity: defects.length > 0 || boatAreas.length <= 1 ? 0.45 : 1
+                            opacity: isPinnedGeneralArea || defects.length > 0 || boatAreas.length <= 1 ? 0.45 : 1
                           }}
                         >
                           Remove
@@ -762,13 +784,26 @@ export default function BoatLogPage({ params }) {
                           </button>
                         </td>
                         <td>
-                          <DefectSearchInput
-                            value={defect.text}
-                            suggestions={getDefectSuggestions(defect.text, area)}
-                            onChange={(value) => updateDefectText(defect.id, value)}
-                            onSelect={(selectedDefect) => selectExistingDefect(defect.id, selectedDefect)}
-                            placeholder="Type a defect..."
-                          />
+                          {editingDefectId === defect.id ? (
+                            <DefectSearchInput
+                              value={defect.text}
+                              suggestions={getDefectSuggestions(defect.text, area)}
+                              onChange={(value) => updateDefectText(defect.id, value)}
+                              onSelect={(selectedDefect) => selectExistingDefect(defect.id, selectedDefect)}
+                              onBlur={() => setEditingDefectId(null)}
+                              placeholder="Type a defect..."
+                              autoFocus
+                            />
+                          ) : (
+                            <button
+                              className="defect-text-button"
+                              type="button"
+                              onClick={() => setEditingDefectId(defect.id)}
+                              title="Edit defect"
+                            >
+                              {defect.text}
+                            </button>
+                          )}
                         </td>
                         <td>
                           <select
@@ -892,7 +927,7 @@ export default function BoatLogPage({ params }) {
                     ) : (
                       defects.map((defect) => (
                         <tr className="audit-entry-row" key={`${defect.id}-report`}>
-                          <td>{rowNumbers[defect.id]}</td>
+                          <td>{isGeneralArea(area) ? "" : rowNumbers[defect.id]}</td>
                           <td>{defect.text}</td>
                           <td>{defect.discipline || "-"}</td>
                           <td></td>
@@ -929,8 +964,11 @@ function DefectSearchInput({
   const hasSuggestions = isFocused && suggestions.length > 0;
 
   function handleSelect(selectedDefect) {
-    onSelect(selectedDefect);
     setIsFocused(false);
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    onSelect(selectedDefect);
   }
 
   return (

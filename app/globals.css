@@ -907,6 +907,26 @@ textarea:focus {
   position: relative;
 }
 
+.defect-text-button {
+  display: block;
+  width: 100%;
+  min-height: 38px;
+  border: 0;
+  border-radius: 0;
+  padding: 9px 12px;
+  background: transparent;
+  color: #172f45;
+  font-size: 14px;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.defect-text-button:hover,
+.defect-text-button:focus {
+  background: rgba(15, 118, 110, 0.08);
+  outline: none;
+}
+
 .defect-suggestions {
   position: absolute;
   top: calc(100% + 2px);
