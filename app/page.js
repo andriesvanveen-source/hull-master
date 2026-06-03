@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { BOAT_MODELS, BOAT_NAME_PATTERN } from "../lib/constants";
+import { BOAT_MODELS, BOAT_NAME_PATTERN, DEFAULT_COMMISSIONING_ENGINEER } from "../lib/constants";
 import { exportBoatReport } from "../lib/pdfReport";
 import { createBoat, loadState, subscribeToStateChanges } from "../lib/storage";
 
 export default function HomePage() {
   const [state, setState] = useState({ boats: [] });
   const [boatName, setBoatName] = useState("");
+  const [commissioningEngineer, setCommissioningEngineer] = useState(DEFAULT_COMMISSIONING_ENGINEER);
   const [error, setError] = useState("");
   const [hasLoaded, setHasLoaded] = useState(false);
   const [isAddingBoat, setIsAddingBoat] = useState(false);
@@ -97,6 +98,7 @@ export default function HomePage() {
   async function handleCreateBoat(event) {
     event.preventDefault();
     const normalizedName = boatName.trim().toUpperCase();
+    const normalizedEngineer = commissioningEngineer.trim();
 
     if (!normalizedName) {
       setError("Enter a boat name.");
@@ -108,18 +110,24 @@ export default function HomePage() {
       return;
     }
 
+    if (!normalizedEngineer) {
+      setError("Enter the commissioning engineer.");
+      return;
+    }
+
     if (state.boats.some((boat) => boat.name === normalizedName)) {
       setError(`${normalizedName} already exists.`);
       return;
     }
 
     try {
-      const nextBoat = await createBoat(normalizedName);
+      const nextBoat = await createBoat(normalizedName, normalizedEngineer);
 
       setState((current) => ({
         boats: [nextBoat, ...current.boats]
       }));
       setBoatName("");
+      setCommissioningEngineer(DEFAULT_COMMISSIONING_ENGINEER);
       setError("");
       setIsAddingBoat(false);
     } catch (createError) {
@@ -190,12 +198,21 @@ export default function HomePage() {
               aria-label="Boat name"
               autoFocus
             />
+            <input
+              id="commissioningEngineer"
+              value={commissioningEngineer}
+              onChange={(event) => setCommissioningEngineer(event.target.value)}
+              placeholder="Commissioning engineer"
+              autoComplete="name"
+              aria-label="Commissioning engineer"
+            />
             <button className="button" type="submit">Add</button>
             <button
               className="button secondary"
               type="button"
               onClick={() => {
                 setBoatName("");
+                setCommissioningEngineer(DEFAULT_COMMISSIONING_ENGINEER);
                 setError("");
                 setIsAddingBoat(false);
               }}
@@ -217,13 +234,15 @@ export default function HomePage() {
               {visibleBoats.map((boat) => {
                 const updatedAt = getBoatUpdatedAt(boat);
                 const defectLabel = boat.defects.length === 1 ? "defect" : "defects";
+                const engineer = boat.commissioningEngineer || DEFAULT_COMMISSIONING_ENGINEER;
 
                 return (
                   <article className="boat-card" key={boat.id}>
                     <Link className="boat-main-link" href={`/boats/${boat.id}`}>
                       <span className="boat-name">{boat.name}</span>
                       <span className="boat-meta">
-                        {boat.defects.length} {defectLabel}{" \u00b7 "}updated {formatRelativeTime(updatedAt)}
+                        {boat.defects.length} {defectLabel}{" \u00b7 "}updated {formatRelativeTime(updatedAt)}<br />
+                        Engineer: {engineer}
                       </span>
                     </Link>
                     <button
