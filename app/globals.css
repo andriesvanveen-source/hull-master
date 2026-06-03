@@ -769,6 +769,93 @@ textarea:focus {
   white-space: nowrap;
 }
 
+.repeat-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: -8px 0 18px;
+}
+
+.repeat-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #0b2d49;
+}
+
+.repeat-toggle input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.toggle-track {
+  position: relative;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 24px;
+  border: 1px solid #c9c0ae;
+  border-radius: 999px;
+  background: #e8decf;
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+
+.toggle-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fffdf8;
+  box-shadow: 0 1px 3px rgba(24, 35, 45, 0.22);
+  transition: transform 0.16s ease;
+}
+
+.repeat-toggle input:checked + .toggle-track {
+  border-color: #0f766e;
+  background: #0f766e;
+}
+
+.repeat-toggle input:checked + .toggle-track .toggle-thumb {
+  transform: translateX(20px);
+}
+
+.repeat-toggle input:disabled + .toggle-track {
+  opacity: 0.45;
+}
+
+.repeat-toggle strong,
+.repeat-toggle small {
+  display: block;
+}
+
+.repeat-toggle strong {
+  font-size: 13px;
+}
+
+.repeat-toggle small,
+.repeat-key {
+  color: #4f5f6d;
+  font-size: 12px;
+}
+
+.repeat-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: "Courier New", Courier, monospace;
+}
+
+.repeat-swatch {
+  width: 18px;
+  height: 12px;
+  border: 1px solid #b7973c;
+  background: #fff2b8;
+}
+
 .sheet-table-wrap {
   overflow: visible;
   border: 1px solid var(--line);
@@ -839,6 +926,11 @@ textarea:focus {
 .entry-row td {
   height: 38px;
   background: #fffdf8;
+}
+
+.entry-row.repeat-defect-row td,
+.audit-entry-row.repeat-defect-row td {
+  background: #fff2b8;
 }
 
 .add-defect-row td {
@@ -1058,6 +1150,10 @@ textarea:focus {
     display: none;
   }
 
+  .repeat-toggle-row {
+    display: none;
+  }
+
   .sheet-table-wrap {
     display: none;
   }
@@ -1153,6 +1249,10 @@ textarea:focus {
   .autosave-note,
   .table-tip {
     display: none;
+  }
+
+  .audit-entry-row.repeat-defect-row td {
+    background: #fff2b8;
   }
 }
 
@@ -1281,6 +1381,11 @@ textarea:focus {
 
   .autosave-note {
     margin-top: 0;
+  }
+
+  .repeat-toggle-row {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .discipline-col {

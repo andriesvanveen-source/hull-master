@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { normalizeDefectText, parseCommonDefectsCsv } from "../../../lib/commonDefects";
 import {
+  BOAT_MODELS,
   BOAT_NAME_PATTERN,
   COMMON_DEFECT_AREAS,
   COMMISSIONING_ENGINEER_PLACEHOLDER,
@@ -39,6 +40,7 @@ export default function BoatLogPage({ params }) {
   const [reportDate, setReportDate] = useState(null);
   const [saveError, setSaveError] = useState("");
   const [editingDefectId, setEditingDefectId] = useState(null);
+  const [showRepeatDefects, setShowRepeatDefects] = useState(false);
   const [boatNameDraft, setBoatNameDraft] = useState("");
   const [commissioningEngineerDraft, setCommissioningEngineerDraft] = useState("");
   const [newAreaName, setNewAreaName] = useState("");
@@ -122,6 +124,19 @@ export default function BoatLogPage({ params }) {
   const activeBoatName = boat?.name;
   const activeCommissioningEngineer = boat?.commissioningEngineer || "";
   const boatAreas = useMemo(() => getBoatAreas(boat), [boat]);
+  const previousBoat = useMemo(() => findPreviousBoat(boat, state.boats), [boat, state.boats]);
+  const repeatedDefectTexts = useMemo(() => {
+    if (!previousBoat) {
+      return new Set();
+    }
+
+    return new Set(
+      previousBoat.defects
+        .map((defect) => normalizeDefectText(defect.text))
+        .filter(Boolean)
+    );
+  }, [previousBoat]);
+  const shouldHighlightRepeats = showRepeatDefects && repeatedDefectTexts.size > 0;
   const areaOptions = useMemo(() => {
     const fromCommonDefects = Object.keys(commonDefectsByArea).filter((area) => area !== "all");
     const existingAreas = new Set(boatAreas.map((area) => area.toLowerCase()));
@@ -482,7 +497,10 @@ export default function BoatLogPage({ params }) {
     }
 
     try {
-      const createdAt = await exportBoatReport(boat);
+      const createdAt = await exportBoatReport(boat, {
+        showRepeatDefects,
+        previousBoat
+      });
       setReportDate(createdAt);
       setSaveError("");
     } catch (exportError) {
@@ -697,6 +715,7 @@ export default function BoatLogPage({ params }) {
             <span>Hull {boat.name}</span>
             <span>{reportDate ? reportDate.toLocaleString() : ""}</span>
             <span>Commissioning Engineer: {activeCommissioningEngineer}</span>
+            {showRepeatDefects && previousBoat ? <span>Repeat defects highlighted from {previousBoat.name}</span> : null}
           </div>
         </header>
 
@@ -727,6 +746,30 @@ export default function BoatLogPage({ params }) {
           </div>
           <p className="autosave-note">{saveError || "Auto-saves to Supabase as you type"}</p>
         </header>
+
+        <div className="repeat-toggle-row">
+          <label className="repeat-toggle">
+            <input
+              type="checkbox"
+              checked={showRepeatDefects}
+              onChange={(event) => setShowRepeatDefects(event.target.checked)}
+              disabled={!previousBoat}
+            />
+            <span className="toggle-track" aria-hidden="true">
+              <span className="toggle-thumb"></span>
+            </span>
+            <span>
+              <strong>Repeat defects</strong>
+              <small>{previousBoat ? `Compare with ${previousBoat.name}` : "No previous boat"}</small>
+            </span>
+          </label>
+          {shouldHighlightRepeats ? (
+            <div className="repeat-key">
+              <span className="repeat-swatch"></span>
+              <span>Repeated from {previousBoat.name}</span>
+            </div>
+          ) : null}
+        </div>
 
         <section className="sheet-table-wrap">
           <table className="sheet-table">
@@ -770,8 +813,11 @@ export default function BoatLogPage({ params }) {
                         </button>
                       </td>
                     </tr>
-                    {defects.map((defect) => (
-                      <tr className="entry-row" key={defect.id}>
+                    {defects.map((defect) => {
+                      const isRepeatDefect = shouldHighlightRepeats && repeatedDefectTexts.has(normalizeDefectText(defect.text));
+
+                      return (
+                      <tr className={`entry-row${isRepeatDefect ? " repeat-defect-row" : ""}`} key={defect.id}>
                         <td className="remove-cell">
                           <button
                             className="remove-defect-button"
@@ -819,7 +865,8 @@ export default function BoatLogPage({ params }) {
                           </select>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                     {drafts[area]?.isOpen ? (
                       <tr className="entry-row draft-row" key={`${area}-blank`}>
                         <td className="remove-cell"></td>
@@ -925,8 +972,11 @@ export default function BoatLogPage({ params }) {
                         <td colSpan="7">- no defects logged -</td>
                       </tr>
                     ) : (
-                      defects.map((defect) => (
-                        <tr className="audit-entry-row" key={`${defect.id}-report`}>
+                      defects.map((defect) => {
+                        const isRepeatDefect = shouldHighlightRepeats && repeatedDefectTexts.has(normalizeDefectText(defect.text));
+
+                        return (
+                        <tr className={`audit-entry-row${isRepeatDefect ? " repeat-defect-row" : ""}`} key={`${defect.id}-report`}>
                           <td>{isGeneralArea(area) ? "" : rowNumbers[defect.id]}</td>
                           <td>{defect.text}</td>
                           <td>{defect.discipline || "-"}</td>
@@ -935,7 +985,8 @@ export default function BoatLogPage({ params }) {
                           <td></td>
                           <td></td>
                         </tr>
-                      ))
+                        );
+                      })
                     )}
                   </Fragment>
                 );
@@ -948,6 +999,52 @@ export default function BoatLogPage({ params }) {
       </main>
     </div>
   );
+}
+
+function parseBoatSequence(name) {
+  const normalizedName = String(name || "").toUpperCase();
+  const modelPrefix = [...BOAT_MODELS]
+    .sort((left, right) => right.length - left.length)
+    .find((model) => normalizedName.startsWith(model));
+
+  if (modelPrefix) {
+    const number = Number(normalizedName.slice(modelPrefix.length));
+
+    if (Number.isFinite(number)) {
+      return {
+        prefix: modelPrefix,
+        number
+      };
+    }
+  }
+
+  const match = normalizedName.match(/^([A-Z]+)(\d+)$/);
+
+  if (!match) {
+    return null;
+  }
+
+  return {
+    prefix: match[1],
+    number: Number(match[2])
+  };
+}
+
+function findPreviousBoat(currentBoat, boats) {
+  const current = parseBoatSequence(currentBoat?.name);
+
+  if (!current) {
+    return null;
+  }
+
+  return boats
+    .filter((boat) => boat.id !== currentBoat.id)
+    .map((boat) => ({
+      boat,
+      sequence: parseBoatSequence(boat.name)
+    }))
+    .filter(({ sequence }) => sequence && sequence.prefix === current.prefix && sequence.number < current.number)
+    .sort((left, right) => right.sequence.number - left.sequence.number)[0]?.boat || null;
 }
 
 function DefectSearchInput({
