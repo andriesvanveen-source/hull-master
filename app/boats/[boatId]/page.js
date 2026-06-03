@@ -17,6 +17,7 @@ import {
   deleteBoat,
   deleteDefect,
   duplicateBoat,
+  loadCommonDefects,
   loadState,
   subscribeToStateChanges,
   updateBoatAreas,
@@ -31,11 +32,13 @@ export default function BoatLogPage({ params }) {
   const [hasLoaded, setHasLoaded] = useState(false);
   const [drafts, setDrafts] = useState({});
   const [commonDefectsByArea, setCommonDefectsByArea] = useState({});
+  const [loadedFullDefectAreas, setLoadedFullDefectAreas] = useState({});
   const [reportDate, setReportDate] = useState(null);
   const [saveError, setSaveError] = useState("");
   const [boatNameDraft, setBoatNameDraft] = useState("");
   const [commissioningEngineerDraft, setCommissioningEngineerDraft] = useState("");
   const [newAreaName, setNewAreaName] = useState("");
+  const [isAddingArea, setIsAddingArea] = useState(false);
   const [isSavingBoat, setIsSavingBoat] = useState(false);
   const [isSavingEngineer, setIsSavingEngineer] = useState(false);
   const [isSavingAreas, setIsSavingAreas] = useState(false);
@@ -117,7 +120,10 @@ export default function BoatLogPage({ params }) {
   const boatAreas = useMemo(() => getBoatAreas(boat), [boat]);
   const areaOptions = useMemo(() => {
     const fromCommonDefects = Object.keys(commonDefectsByArea).filter((area) => area !== "all");
-    return [...new Set([...COMMON_DEFECT_AREAS, ...fromCommonDefects, ...boatAreas])];
+    const existingAreas = new Set(boatAreas.map((area) => area.toLowerCase()));
+
+    return [...new Set([...COMMON_DEFECT_AREAS, ...fromCommonDefects])]
+      .filter((area) => !existingAreas.has(area.toLowerCase()));
   }, [boatAreas, commonDefectsByArea]);
 
   useEffect(() => {
@@ -131,6 +137,50 @@ export default function BoatLogPage({ params }) {
       setCommissioningEngineerDraft(activeCommissioningEngineer);
     }
   }, [activeBoatId, activeCommissioningEngineer]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const areasToLoad = boatAreas.filter((area) => !loadedFullDefectAreas[area]);
+
+    if (areasToLoad.length === 0) {
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    areasToLoad.forEach((area) => {
+      loadCommonDefects(area)
+        .then((defects) => {
+          if (!isMounted) {
+            return;
+          }
+
+          if (defects.length > 0) {
+            setCommonDefectsByArea((current) => ({
+              ...current,
+              [area]: defects
+            }));
+          }
+
+          setLoadedFullDefectAreas((current) => ({
+            ...current,
+            [area]: true
+          }));
+        })
+        .catch(() => {
+          if (isMounted) {
+            setLoadedFullDefectAreas((current) => ({
+              ...current,
+              [area]: true
+            }));
+          }
+        });
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [boatAreas, loadedFullDefectAreas]);
 
   const areaRows = useMemo(() => {
     return boatAreas.reduce((acc, area) => {
@@ -220,7 +270,7 @@ export default function BoatLogPage({ params }) {
     const normalizedArea = newAreaName.trim();
 
     if (!normalizedArea) {
-      setSaveError("Enter an area name.");
+      setSaveError("Choose an area.");
       return;
     }
 
@@ -233,6 +283,7 @@ export default function BoatLogPage({ params }) {
 
     if (updatedBoat) {
       setNewAreaName("");
+      setIsAddingArea(false);
     }
   }
 
@@ -656,23 +707,6 @@ export default function BoatLogPage({ params }) {
           <p className="autosave-note">{saveError || "Auto-saves to Supabase as you type"}</p>
         </header>
 
-        <form className="quick-boat-form" onSubmit={addArea} style={{ marginBottom: "14px" }}>
-          <input
-            list="boatAreaOptions"
-            value={newAreaName}
-            onChange={(event) => setNewAreaName(event.target.value)}
-            placeholder="Add area"
-            aria-label="Add area"
-            disabled={isSavingAreas}
-          />
-          <datalist id="boatAreaOptions">
-            {areaOptions.map((area) => (
-              <option key={area} value={area} />
-            ))}
-          </datalist>
-          <button className="button" type="submit" disabled={isSavingAreas}>Add area</button>
-        </form>
-
         <section className="sheet-table-wrap">
           <table className="sheet-table">
             <thead>
@@ -795,6 +829,39 @@ export default function BoatLogPage({ params }) {
             </tbody>
           </table>
         </section>
+
+        <div style={{ display: "grid", gap: "10px", justifyItems: "center", marginTop: "18px" }}>
+          <button
+            className="button secondary"
+            type="button"
+            onClick={() => {
+              setIsAddingArea((current) => !current);
+              setNewAreaName("");
+              setSaveError("");
+            }}
+          >
+            Add Area
+          </button>
+          {isAddingArea ? (
+            <form className="quick-boat-form" onSubmit={addArea} style={{ width: "min(520px, 100%)" }}>
+              <select
+                value={newAreaName}
+                onChange={(event) => setNewAreaName(event.target.value)}
+                aria-label="Area to add"
+                disabled={isSavingAreas || areaOptions.length === 0}
+              >
+                <option value="">Select area</option>
+                {areaOptions.map((area) => (
+                  <option key={area} value={area}>{area}</option>
+                ))}
+              </select>
+              <button className="button" type="submit" disabled={isSavingAreas || !newAreaName}>Add</button>
+            </form>
+          ) : null}
+          {isAddingArea && areaOptions.length === 0 ? (
+            <p className="autosave-note" style={{ marginTop: 0 }}>All suggested areas are already on this boat.</p>
+          ) : null}
+        </div>
 
         <section className="print-table-wrap">
           <table className="audit-report-table">
