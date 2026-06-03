@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { normalizeDefectText, parseCommonDefectsCsv } from "../../../lib/commonDefects";
-import { BOAT_AREAS, BOAT_NAME_PATTERN, DISCIPLINES } from "../../../lib/constants";
+import { BOAT_AREAS, BOAT_NAME_PATTERN, COMMISSIONING_ENGINEER_PLACEHOLDER, DISCIPLINES } from "../../../lib/constants";
 import { exportBoatReport } from "../../../lib/pdfReport";
 import {
   createDefect,
@@ -13,6 +13,7 @@ import {
   duplicateBoat,
   loadState,
   subscribeToStateChanges,
+  updateBoatCommissioningEngineer,
   updateBoatName,
   updateDefectRecord
 } from "../../../lib/storage";
@@ -26,7 +27,9 @@ export default function BoatLogPage({ params }) {
   const [reportDate, setReportDate] = useState(null);
   const [saveError, setSaveError] = useState("");
   const [boatNameDraft, setBoatNameDraft] = useState("");
+  const [commissioningEngineerDraft, setCommissioningEngineerDraft] = useState("");
   const [isSavingBoat, setIsSavingBoat] = useState(false);
+  const [isSavingEngineer, setIsSavingEngineer] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -101,12 +104,19 @@ export default function BoatLogPage({ params }) {
   const boat = state.boats.find((item) => item.id === params.boatId);
   const activeBoatId = boat?.id;
   const activeBoatName = boat?.name;
+  const activeCommissioningEngineer = boat?.commissioningEngineer || "";
 
   useEffect(() => {
     if (activeBoatName) {
       setBoatNameDraft(activeBoatName);
     }
   }, [activeBoatId, activeBoatName]);
+
+  useEffect(() => {
+    if (activeBoatId) {
+      setCommissioningEngineerDraft(activeCommissioningEngineer);
+    }
+  }, [activeBoatId, activeCommissioningEngineer]);
 
   const areaRows = useMemo(() => {
     return BOAT_AREAS.reduce((acc, area) => {
@@ -134,6 +144,14 @@ export default function BoatLogPage({ params }) {
 
     return numbers;
   }, [boat]);
+
+  function updateBoatInState(updatedBoat) {
+    setState((current) => ({
+      boats: current.boats.map((item) => (
+        item.id === updatedBoat.id ? updatedBoat : item
+      ))
+    }));
+  }
 
   function updateDefectInState(defectId, updater) {
     setState((current) => ({
@@ -362,17 +380,38 @@ export default function BoatLogPage({ params }) {
     try {
       const updatedBoat = await updateBoatName(boat.id, normalizedName);
 
-      setState((current) => ({
-        boats: current.boats.map((item) => (
-          item.id === boat.id ? updatedBoat : item
-        ))
-      }));
+      updateBoatInState(updatedBoat);
       setBoatNameDraft(updatedBoat.name);
       setSaveError("");
     } catch (updateError) {
       setSaveError(updateError.message || "Could not update boat number.");
     } finally {
       setIsSavingBoat(false);
+    }
+  }
+
+  async function saveCommissioningEngineer(event) {
+    event.preventDefault();
+    const normalizedEngineer = commissioningEngineerDraft.trim();
+
+    if (normalizedEngineer === activeCommissioningEngineer) {
+      setCommissioningEngineerDraft(normalizedEngineer);
+      setSaveError("");
+      return;
+    }
+
+    setIsSavingEngineer(true);
+
+    try {
+      const updatedBoat = await updateBoatCommissioningEngineer(boat.id, normalizedEngineer);
+
+      updateBoatInState(updatedBoat);
+      setCommissioningEngineerDraft(updatedBoat.commissioningEngineer || "");
+      setSaveError("");
+    } catch (updateError) {
+      setSaveError(updateError.message || "Could not update commissioning engineer.");
+    } finally {
+      setIsSavingEngineer(false);
     }
   }
 
@@ -518,6 +557,7 @@ export default function BoatLogPage({ params }) {
           <div>
             <span>Hull {boat.name}</span>
             <span>{reportDate ? reportDate.toLocaleString() : ""}</span>
+            <span>Commissioning Engineer: {activeCommissioningEngineer}</span>
           </div>
         </header>
 
@@ -531,6 +571,18 @@ export default function BoatLogPage({ params }) {
                 onChange={(event) => setBoatNameDraft(event.target.value)}
                 aria-label="Boat number"
                 disabled={isSavingBoat}
+              />
+            </form>
+            <p className="log-kicker">Commissioning Engineer</p>
+            <form className="boat-name-editor" onSubmit={saveCommissioningEngineer}>
+              <input
+                className="boat-name-input"
+                value={commissioningEngineerDraft}
+                onChange={(event) => setCommissioningEngineerDraft(event.target.value)}
+                onBlur={saveCommissioningEngineer}
+                placeholder={COMMISSIONING_ENGINEER_PLACEHOLDER}
+                aria-label="Commissioning engineer"
+                disabled={isSavingEngineer}
               />
             </form>
           </div>
