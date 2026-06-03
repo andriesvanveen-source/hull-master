@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { normalizeDefectText, parseCommonDefectsCsv } from "../../../lib/commonDefects";
 import {
   BOAT_MODELS,
@@ -1058,14 +1058,19 @@ function DefectSearchInput({
   value
 }) {
   const [isFocused, setIsFocused] = useState(false);
+  const isSelectingSuggestion = useRef(false);
   const hasSuggestions = isFocused && suggestions.length > 0;
 
   function handleSelect(selectedDefect) {
+    isSelectingSuggestion.current = true;
     setIsFocused(false);
+    onSelect(selectedDefect);
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
-    onSelect(selectedDefect);
+    window.setTimeout(() => {
+      isSelectingSuggestion.current = false;
+    }, 0);
   }
 
   return (
@@ -1077,6 +1082,9 @@ function DefectSearchInput({
         onFocus={() => setIsFocused(true)}
         onBlur={() => {
           window.setTimeout(() => setIsFocused(false), 120);
+          if (isSelectingSuggestion.current) {
+            return;
+          }
           onBlur?.();
         }}
         placeholder={placeholder}
