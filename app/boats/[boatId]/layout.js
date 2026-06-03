@@ -1,3 +1,5 @@
+import { COMMISSIONING_ENGINEERS } from "../../../lib/constants";
+
 export default function BoatLayout({ children }) {
   return (
     <>
@@ -16,6 +18,26 @@ export default function BoatLayout({ children }) {
           text-transform: none;
         }
       `}</style>
+      <datalist id="commissioningEngineerOptions">
+        {COMMISSIONING_ENGINEERS.map((engineer) => (
+          <option key={engineer} value={engineer} />
+        ))}
+      </datalist>
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
+            (() => {
+              const applyEngineerList = () => {
+                const input = document.querySelector('input[aria-label="Commissioning engineer"]');
+                if (input) input.setAttribute('list', 'commissioningEngineerOptions');
+              };
+
+              applyEngineerList();
+              new MutationObserver(applyEngineerList).observe(document.body, { childList: true, subtree: true });
+            })();
+          `
+        }}
+      />
       {children}
     </>
   );
