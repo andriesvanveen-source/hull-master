@@ -1116,6 +1116,7 @@ function DefectSearchInput({
 }) {
   const [isFocused, setIsFocused] = useState(false);
   const isSelectingSuggestion = useRef(false);
+  const suggestionPointer = useRef(null);
   const hasSuggestions = isFocused && suggestions.length > 0;
 
   function handleSelect(selectedDefect) {
@@ -1130,6 +1131,49 @@ function DefectSearchInput({
     }, 180);
   }
 
+  function handleSuggestionPointerDown(event) {
+    isSelectingSuggestion.current = true;
+    suggestionPointer.current = {
+      x: event.clientX,
+      y: event.clientY,
+      moved: false
+    };
+  }
+
+  function handleSuggestionPointerMove(event) {
+    const pointer = suggestionPointer.current;
+
+    if (!pointer) {
+      return;
+    }
+
+    const distanceX = Math.abs(event.clientX - pointer.x);
+    const distanceY = Math.abs(event.clientY - pointer.y);
+
+    if (distanceX > 8 || distanceY > 8) {
+      pointer.moved = true;
+    }
+  }
+
+  function resetSuggestionPointer() {
+    window.setTimeout(() => {
+      isSelectingSuggestion.current = false;
+      suggestionPointer.current = null;
+    }, 180);
+  }
+
+  function handleSuggestionPointerUp(event, selectedDefect) {
+    const pointer = suggestionPointer.current;
+
+    if (!pointer?.moved) {
+      event.preventDefault();
+      handleSelect(selectedDefect);
+      return;
+    }
+
+    resetSuggestionPointer();
+  }
+
   return (
     <div className="defect-search-cell">
       <input
@@ -1138,10 +1182,10 @@ function DefectSearchInput({
         onChange={(event) => onChange(event.target.value)}
         onFocus={() => setIsFocused(true)}
         onBlur={() => {
-          window.setTimeout(() => setIsFocused(false), 120);
           if (isSelectingSuggestion.current) {
             return;
           }
+          window.setTimeout(() => setIsFocused(false), 120);
           onBlur?.();
         }}
         placeholder={placeholder}
@@ -1158,10 +1202,10 @@ function DefectSearchInput({
               className="defect-suggestion"
               key={`${defect.text}-${defect.discipline}-${index}`}
               type="button"
-              onPointerDown={(event) => {
-                event.preventDefault();
-                handleSelect(defect);
-              }}
+              onPointerDown={handleSuggestionPointerDown}
+              onPointerMove={handleSuggestionPointerMove}
+              onPointerCancel={resetSuggestionPointer}
+              onPointerUp={(event) => handleSuggestionPointerUp(event, defect)}
             >
               <span>{defect.text}</span>
               {defect.discipline ? <span className="suggestion-discipline">{defect.discipline}</span> : null}
