@@ -12,6 +12,7 @@ import {
   DISCIPLINES,
   GENERAL_AREA,
   getBoatAreas,
+  getCommonDefectAreaNames,
   isGeneralArea,
   orderBoatAreas
 } from "../../../lib/constants";
@@ -160,7 +161,8 @@ export default function BoatLogPage({ params }) {
 
   useEffect(() => {
     let isMounted = true;
-    const areasToLoad = boatAreas.filter((area) => !loadedFullDefectAreas[area]);
+    const areasToLoad = [...new Set(boatAreas.flatMap(getCommonDefectAreaNames))]
+      .filter((area) => !loadedFullDefectAreas[area]);
 
     if (areasToLoad.length === 0) {
       return () => {
@@ -433,7 +435,25 @@ export default function BoatLogPage({ params }) {
   }
 
   function getAreaCommonDefects(area) {
-    return commonDefectsByArea[area] || commonDefectsByArea.all || [];
+    const defects = getCommonDefectAreaNames(area)
+      .flatMap((areaName) => commonDefectsByArea[areaName] || []);
+
+    if (defects.length === 0) {
+      return commonDefectsByArea.all || [];
+    }
+
+    const seenDefects = new Set();
+
+    return defects.filter((defect) => {
+      const key = `${normalizeDefectText(defect.text)}|${defect.discipline || ""}`;
+
+      if (seenDefects.has(key)) {
+        return false;
+      }
+
+      seenDefects.add(key);
+      return true;
+    });
   }
 
   function findCommonDefect(value, area) {

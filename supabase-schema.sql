@@ -25,7 +25,7 @@ create table if not exists public.defects (
   constraint defects_area_not_blank check (length(btrim(area)) > 0),
   constraint defects_discipline_allowed check (
     discipline is null
-    or discipline in ('PLUM', 'ELEC', 'MECH', 'FA', 'DECK', 'CARP')
+    or discipline in ('PLUM', 'ELEC', 'MECH', 'FA', 'DECK', 'CARP', 'FIN')
   )
 );
 
@@ -38,7 +38,7 @@ create table if not exists public.common_defects (
   constraint common_defects_text_not_blank check (length(btrim(text)) > 0),
   constraint common_defects_discipline_allowed check (
     discipline is null
-    or discipline in ('PLUM', 'ELEC', 'MECH', 'FA', 'DECK', 'CARP')
+    or discipline in ('PLUM', 'ELEC', 'MECH', 'FA', 'DECK', 'CARP', 'FIN')
   )
 );
 
