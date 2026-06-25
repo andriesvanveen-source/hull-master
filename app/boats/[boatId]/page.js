@@ -40,6 +40,7 @@ export default function BoatLogPage({ params }) {
   const [reportDate, setReportDate] = useState(null);
   const [saveError, setSaveError] = useState("");
   const [editingDefectId, setEditingDefectId] = useState(null);
+  const [defectTextDrafts, setDefectTextDrafts] = useState({});
   const [showRepeatDefects, setShowRepeatDefects] = useState(false);
   const [boatNameDraft, setBoatNameDraft] = useState("");
   const [commissioningEngineerDraft, setCommissioningEngineerDraft] = useState("");
@@ -268,6 +269,14 @@ export default function BoatLogPage({ params }) {
     }));
   }
 
+  function clearDefectTextDraft(defectId) {
+    setDefectTextDrafts((current) => {
+      const nextDrafts = { ...current };
+      delete nextDrafts[defectId];
+      return nextDrafts;
+    });
+  }
+
   async function saveBoatAreas(nextAreas) {
     setIsSavingAreas(true);
 
@@ -412,6 +421,7 @@ export default function BoatLogPage({ params }) {
 
   async function removeDefect(defectId) {
     setEditingDefectId((current) => (current === defectId ? null : current));
+    clearDefectTextDraft(defectId);
     removeDefectFromState(defectId);
 
     try {
@@ -432,15 +442,27 @@ export default function BoatLogPage({ params }) {
     return getAreaCommonDefects(area).find((defect) => normalizeDefectText(defect.text) === normalizedValue);
   }
 
-  async function updateDefectText(defectId, value) {
+  async function saveDefectText(defectId, value) {
     const currentDefect = boat.defects.find((defect) => defect.id === defectId);
-    const matchedDefect = findCommonDefect(value, currentDefect?.area);
+
+    if (!currentDefect) {
+      clearDefectTextDraft(defectId);
+      return;
+    }
 
     if (!value.trim()) {
+      clearDefectTextDraft(defectId);
       await updateDefect(defectId, "text", value);
       return;
     }
 
+    if (value === currentDefect.text) {
+      clearDefectTextDraft(defectId);
+      setSaveError("");
+      return;
+    }
+
+    const matchedDefect = findCommonDefect(value, currentDefect.area);
     const patch = {
       text: value,
       ...(matchedDefect?.discipline ? { discipline: matchedDefect.discipline } : {})
@@ -454,6 +476,7 @@ export default function BoatLogPage({ params }) {
 
     try {
       await updateDefectRecord(defectId, patch);
+      clearDefectTextDraft(defectId);
       setSaveError("");
     } catch (updateError) {
       setSaveError(updateError.message || "Could not update defect in Supabase.");
@@ -478,6 +501,7 @@ export default function BoatLogPage({ params }) {
       text: selectedDefect.text,
       discipline: selectedDefect.discipline || defect.discipline
     }));
+    clearDefectTextDraft(defectId);
 
     try {
       await updateDefectRecord(defectId, {
@@ -815,6 +839,7 @@ export default function BoatLogPage({ params }) {
                     </tr>
                     {defects.map((defect) => {
                       const isRepeatDefect = shouldHighlightRepeats && repeatedDefectTexts.has(normalizeDefectText(defect.text));
+                      const defectDraftValue = defectTextDrafts[defect.id] ?? defect.text;
 
                       return (
                       <tr className={`entry-row${isRepeatDefect ? " repeat-defect-row" : ""}`} key={defect.id}>
@@ -832,11 +857,17 @@ export default function BoatLogPage({ params }) {
                         <td>
                           {editingDefectId === defect.id ? (
                             <DefectSearchInput
-                              value={defect.text}
-                              suggestions={getDefectSuggestions(defect.text, area)}
-                              onChange={(value) => updateDefectText(defect.id, value)}
+                              value={defectDraftValue}
+                              suggestions={getDefectSuggestions(defectDraftValue, area)}
+                              onChange={(value) => setDefectTextDrafts((current) => ({
+                                ...current,
+                                [defect.id]: value
+                              }))}
                               onSelect={(selectedDefect) => selectExistingDefect(defect.id, selectedDefect)}
-                              onBlur={() => setEditingDefectId(null)}
+                              onBlur={() => {
+                                setEditingDefectId(null);
+                                saveDefectText(defect.id, defectTextDrafts[defect.id] ?? defect.text);
+                              }}
                               placeholder="Type a defect..."
                               autoFocus
                             />
@@ -844,7 +875,13 @@ export default function BoatLogPage({ params }) {
                             <button
                               className="defect-text-button"
                               type="button"
-                              onClick={() => setEditingDefectId(defect.id)}
+                              onClick={() => {
+                                setDefectTextDrafts((current) => ({
+                                  ...current,
+                                  [defect.id]: defect.text
+                                }));
+                                setEditingDefectId(defect.id);
+                              }}
                               title="Edit defect"
                             >
                               {defect.text}
@@ -1070,7 +1107,7 @@ function DefectSearchInput({
     }
     window.setTimeout(() => {
       isSelectingSuggestion.current = false;
-    }, 0);
+    }, 180);
   }
 
   return (
@@ -1090,6 +1127,8 @@ function DefectSearchInput({
         placeholder={placeholder}
         aria-label={ariaLabel}
         autoComplete="off"
+        autoCorrect="off"
+        spellCheck={false}
         autoFocus={autoFocus}
       />
       {hasSuggestions ? (
@@ -1099,7 +1138,7 @@ function DefectSearchInput({
               className="defect-suggestion"
               key={`${defect.text}-${defect.discipline}-${index}`}
               type="button"
-              onMouseDown={(event) => {
+              onPointerDown={(event) => {
                 event.preventDefault();
                 handleSelect(defect);
               }}
