@@ -50,20 +50,24 @@ export default function BoatLogPage({ params }) {
   const [isSavingBoat, setIsSavingBoat] = useState(false);
   const [isSavingEngineer, setIsSavingEngineer] = useState(false);
   const [isSavingAreas, setIsSavingAreas] = useState(false);
+  const latestStateRequest = useRef(0);
 
   useEffect(() => {
     let isMounted = true;
 
     async function refreshState() {
+      const requestId = latestStateRequest.current + 1;
+      latestStateRequest.current = requestId;
+
       try {
         const nextState = await loadState();
 
-        if (isMounted) {
+        if (isMounted && requestId === latestStateRequest.current) {
           setState(nextState);
           setSaveError("");
         }
       } catch (loadError) {
-        if (isMounted) {
+        if (isMounted && requestId === latestStateRequest.current) {
           setSaveError(loadError.message || "Could not load boat log from Supabase.");
         }
       } finally {
@@ -373,7 +377,9 @@ export default function BoatLogPage({ params }) {
 
           return {
             ...item,
-            defects: [...item.defects, nextDefect]
+            defects: item.defects.some((defect) => defect.id === nextDefect.id)
+              ? item.defects
+              : [...item.defects, nextDefect]
           };
         })
       }));
@@ -397,10 +403,9 @@ export default function BoatLogPage({ params }) {
 
   async function updateDefect(defectId, field, value) {
     if (field === "text" && !value.trim()) {
-      removeDefectFromState(defectId);
-
       try {
         await deleteDefect(defectId);
+        removeDefectFromState(defectId);
         setSaveError("");
       } catch (deleteError) {
         setSaveError(deleteError.message || "Could not delete defect from Supabase.");
@@ -422,12 +427,11 @@ export default function BoatLogPage({ params }) {
   }
 
   async function removeDefect(defectId) {
-    setEditingDefectId((current) => (current === defectId ? null : current));
-    clearDefectTextDraft(defectId);
-    removeDefectFromState(defectId);
-
     try {
       await deleteDefect(defectId);
+      setEditingDefectId((current) => (current === defectId ? null : current));
+      clearDefectTextDraft(defectId);
+      removeDefectFromState(defectId);
       setSaveError("");
     } catch (deleteError) {
       setSaveError(deleteError.message || "Could not delete defect from Supabase.");
