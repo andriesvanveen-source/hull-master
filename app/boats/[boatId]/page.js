@@ -501,16 +501,6 @@ export default function BoatLogPage({ params }) {
     }
   }
 
-  async function setDefectCallback(defectId, callbackRequestedAt) {
-    updateDefectInState(defectId, (defect) => ({ ...defect, callbackRequestedAt }));
-    try {
-      await updateDefectRecord(defectId, { callbackRequestedAt });
-      setSaveError("");
-    } catch (updateError) {
-      setSaveError(updateError.message || "Could not save callback status.");
-    }
-  }
-
   async function removeDefect(defectId) {
     try {
       await deleteDefect(defectId);
@@ -997,19 +987,6 @@ export default function BoatLogPage({ params }) {
                               {defect.text}
                             </button>
                           )}
-                          <div className="defect-workflow-row">
-                            <label className="callback-toggle">
-                              <input
-                                type="checkbox"
-                                checked={Boolean(defect.callbackRequestedAt)}
-                                onChange={(event) => setDefectCallback(
-                                  defect.id,
-                                  event.target.checked ? formatLocalDate(new Date()) : ""
-                                )}
-                              />
-                              Callback
-                            </label>
-                          </div>
                         </td>
                         <td>
                           <select
@@ -1173,13 +1150,6 @@ export default function BoatLogPage({ params }) {
       </main>
     </div>
   );
-}
-
-function formatLocalDate(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
 }
 
 function parseBoatSequence(name) {
