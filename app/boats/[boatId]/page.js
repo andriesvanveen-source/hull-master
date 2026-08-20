@@ -52,6 +52,7 @@ export default function BoatLogPage({ params }) {
   const [isSavingBoat, setIsSavingBoat] = useState(false);
   const [isSavingEngineer, setIsSavingEngineer] = useState(false);
   const [isSavingAreas, setIsSavingAreas] = useState(false);
+  const [isSavingAreaProgress, setIsSavingAreaProgress] = useState(false);
   const [blankRowsByArea, setBlankRowsByArea] = useState({});
   const [localDraftBoatId, setLocalDraftBoatId] = useState("");
   const latestStateRequest = useRef(0);
@@ -136,6 +137,8 @@ export default function BoatLogPage({ params }) {
   const activeCommissioningEngineer = boat?.commissioningEngineer || "";
   const localDraftKey = `hull-master:drafts:${params.boatId}`;
   const boatAreas = useMemo(() => getBoatAreas(boat), [boat]);
+  const areAllAreasComplete = boatAreas.length > 0
+    && boatAreas.every((area) => (boat?.completedAreas || []).includes(area));
   const previousBoat = useMemo(() => findPreviousBoat(boat, state.boats), [boat, state.boats]);
   const repeatedDefectTexts = useMemo(() => {
     if (!previousBoat) {
@@ -376,9 +379,14 @@ export default function BoatLogPage({ params }) {
   }
 
   async function toggleAreaComplete(area) {
+    if (isSavingAreaProgress) {
+      return;
+    }
+
     const completed = new Set(boat.completedAreas || []);
     completed.has(area) ? completed.delete(area) : completed.add(area);
     updateBoatInState({ ...boat, completedAreas: [...completed] });
+    setIsSavingAreaProgress(true);
 
     try {
       const updatedBoat = await updateBoatCompletedAreas(boat.id, [...completed]);
@@ -387,6 +395,29 @@ export default function BoatLogPage({ params }) {
     } catch (updateError) {
       updateBoatInState(boat);
       setSaveError(updateError.message || "Could not save area progress.");
+    } finally {
+      setIsSavingAreaProgress(false);
+    }
+  }
+
+  async function setAllAreasComplete(shouldComplete) {
+    if (isSavingAreaProgress) {
+      return;
+    }
+
+    const nextCompletedAreas = shouldComplete ? [...boatAreas] : [];
+    updateBoatInState({ ...boat, completedAreas: nextCompletedAreas });
+    setIsSavingAreaProgress(true);
+
+    try {
+      const updatedBoat = await updateBoatCompletedAreas(boat.id, nextCompletedAreas);
+      updateBoatInState(updatedBoat);
+      setSaveError("");
+    } catch (updateError) {
+      updateBoatInState(boat);
+      setSaveError(updateError.message || "Could not save area progress.");
+    } finally {
+      setIsSavingAreaProgress(false);
     }
   }
 
@@ -875,6 +906,21 @@ export default function BoatLogPage({ params }) {
           <label className="repeat-toggle">
             <input
               type="checkbox"
+              checked={areAllAreasComplete}
+              onChange={(event) => setAllAreasComplete(event.target.checked)}
+              disabled={isSavingAreaProgress || boatAreas.length === 0}
+            />
+            <span className="toggle-track" aria-hidden="true">
+              <span className="toggle-thumb"></span>
+            </span>
+            <span>
+              <strong>All areas audited</strong>
+              <small>{areAllAreasComplete ? "Entire commissioning list complete" : "Mark every area as audited"}</small>
+            </span>
+          </label>
+          <label className="repeat-toggle">
+            <input
+              type="checkbox"
               checked={showRepeatDefects}
               onChange={(event) => setShowRepeatDefects(event.target.checked)}
               disabled={!previousBoat}
@@ -921,6 +967,7 @@ export default function BoatLogPage({ params }) {
                                 type="checkbox"
                                 checked={(boat.completedAreas || []).includes(area)}
                                 onChange={() => toggleAreaComplete(area)}
+                                disabled={isSavingAreaProgress}
                               />
                               <span>Audited</span>
                             </label>
