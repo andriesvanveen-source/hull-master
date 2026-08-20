@@ -980,9 +980,48 @@ textarea:focus {
   font-size: 12px;
 }
 
-.blank-row-control input {
-  width: 58px;
-  min-height: 30px;
+.blank-row-stepper {
+  display: inline-grid;
+  grid-template-columns: 38px 52px 38px;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid #c9c0ae;
+  border-radius: 8px;
+  background: #fffdf8;
+}
+
+.blank-row-stepper button,
+.blank-row-stepper input {
+  min-width: 0;
+  min-height: 38px;
+  border: 0;
+  background: transparent;
+  color: #0b2d49;
+  font-size: 16px;
+  font-weight: 800;
+  text-align: center;
+  touch-action: manipulation;
+}
+
+.blank-row-stepper button {
+  background: #f0e8d9;
+  cursor: pointer;
+}
+
+.blank-row-stepper button:disabled {
+  opacity: 0.4;
+}
+
+.blank-row-stepper input {
+  border-right: 1px solid #c9c0ae;
+  border-left: 1px solid #c9c0ae;
+  appearance: textfield;
+}
+
+.blank-row-stepper input::-webkit-inner-spin-button,
+.blank-row-stepper input::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
 }
 
 .entry-row td {
@@ -1463,5 +1502,23 @@ textarea:focus {
 
   .remove-col {
     width: 42px;
+  }
+
+  .blank-row-control {
+    float: none;
+    width: 100%;
+    margin-top: 10px;
+    justify-content: space-between;
+    font-size: 13px;
+  }
+
+  .blank-row-stepper {
+    grid-template-columns: 44px 54px 44px;
+  }
+
+  .blank-row-stepper button,
+  .blank-row-stepper input {
+    min-height: 44px;
+    font-size: 18px;
   }
 }

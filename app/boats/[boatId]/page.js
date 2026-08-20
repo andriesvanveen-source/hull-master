@@ -908,6 +908,14 @@ export default function BoatLogPage({ params }) {
     }));
   }
 
+  function setBlankRowCount(area, value) {
+    const nextValue = Math.max(0, Math.min(20, Number(value) || 0));
+    setBlankRowsByArea((current) => ({
+      ...current,
+      [area]: nextValue
+    }));
+  }
+
   if (!hasLoaded) {
     return (
       <div className="app-shell">
@@ -1190,19 +1198,36 @@ export default function BoatLogPage({ params }) {
                         <button className="add-defect-button" type="button" onClick={() => openDraft(area)}>
                           +
                         </button>
-                        <label className="blank-row-control">
-                          Printable blank rows
-                          <input
-                            type="number"
-                            min="0"
-                            max="20"
-                            value={blankRowsByArea[area] || 0}
-                            onChange={(event) => setBlankRowsByArea((current) => ({
-                              ...current,
-                              [area]: Math.max(0, Math.min(20, Number(event.target.value) || 0))
-                            }))}
-                          />
-                        </label>
+                        <div className="blank-row-control">
+                          <span>Printable blank rows</span>
+                          <div className="blank-row-stepper">
+                            <button
+                              type="button"
+                              onClick={() => setBlankRowCount(area, (blankRowsByArea[area] || 0) - 1)}
+                              disabled={(blankRowsByArea[area] || 0) === 0}
+                              aria-label={`Remove a printable blank row from ${area}`}
+                            >
+                              −
+                            </button>
+                            <input
+                              type="number"
+                              inputMode="numeric"
+                              min="0"
+                              max="20"
+                              value={blankRowsByArea[area] || 0}
+                              onChange={(event) => setBlankRowCount(area, event.target.value)}
+                              aria-label={`Printable blank rows for ${area}`}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setBlankRowCount(area, (blankRowsByArea[area] || 0) + 1)}
+                              disabled={(blankRowsByArea[area] || 0) === 20}
+                              aria-label={`Add a printable blank row to ${area}`}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
                       </td>
                     </tr>
                   </Fragment>
