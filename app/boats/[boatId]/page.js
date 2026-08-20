@@ -656,11 +656,19 @@ export default function BoatLogPage({ params }) {
       document.activeElement.blur();
     }
 
+    const auditedAreas = boatAreas.filter((area) => (boat.completedAreas || []).includes(area));
+
+    if (auditedAreas.length === 0) {
+      setSaveError("Select at least one area as audited before exporting the PDF.");
+      return;
+    }
+
     try {
       const createdAt = await exportBoatReport(boat, {
         showRepeatDefects,
         previousBoat,
-        blankRowsByArea
+        blankRowsByArea,
+        areas: auditedAreas
       });
       setReportDate(createdAt);
       setSaveError("");
