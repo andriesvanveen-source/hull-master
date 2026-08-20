@@ -839,6 +839,12 @@ export default function BoatLogPage({ params }) {
 
     try {
       const nextBoat = await runSupabaseMutation(() => duplicateBoat(boat, normalizedName));
+      setState((current) => ({
+        boats: current.boats.some((item) => item.id === nextBoat.id)
+          ? current.boats
+          : [nextBoat, ...current.boats]
+      }));
+      setSaveError("");
       router.push(`/boats/${nextBoat.id}`);
     } catch (duplicateError) {
       setSaveError(duplicateError.message || "Could not duplicate boat.");
