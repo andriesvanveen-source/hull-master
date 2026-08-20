@@ -923,6 +923,59 @@ textarea:focus {
   vertical-align: middle;
 }
 
+.area-complete-toggle {
+  float: right;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 12px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.area-complete-toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: #5fcf8b;
+}
+
+.defect-workflow-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 5px;
+  font-size: 11px;
+  color: #66736f;
+}
+
+.defect-workflow-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.defect-workflow-row input,
+.defect-workflow-row button {
+  min-height: 28px;
+  border: 1px solid #b8c2bf;
+  border-radius: 5px;
+  background: #fff;
+  font: inherit;
+}
+
+.blank-row-control {
+  float: right;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.blank-row-control input {
+  width: 58px;
+  min-height: 30px;
+}
+
 .entry-row td {
   height: 38px;
   background: #fffdf8;

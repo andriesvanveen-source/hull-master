@@ -13,6 +13,9 @@ create table if not exists public.boats (
   constraint boats_name_unique unique (name)
 );
 
+alter table public.boats
+  add column if not exists completed_areas jsonb not null default '[]'::jsonb;
+
 create table if not exists public.defects (
   id uuid primary key default gen_random_uuid(),
   boat_id uuid not null references public.boats(id) on delete cascade,
@@ -28,6 +31,9 @@ create table if not exists public.defects (
     or discipline in ('PLUM', 'ELEC', 'MECH', 'FA', 'DECK', 'CARP', 'FIN')
   )
 );
+
+alter table public.defects
+  add column if not exists callback_requested_at date;
 
 create table if not exists public.common_defects (
   id uuid primary key default gen_random_uuid(),

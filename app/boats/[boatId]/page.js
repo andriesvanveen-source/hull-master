@@ -26,6 +26,7 @@ import {
   loadState,
   subscribeToStateChanges,
   updateBoatAreas,
+  updateBoatCompletedAreas,
   updateBoatCommissioningEngineer,
   updateBoatName,
   updateDefectRecord
@@ -42,6 +43,7 @@ export default function BoatLogPage({ params }) {
   const [saveError, setSaveError] = useState("");
   const [editingDefectId, setEditingDefectId] = useState(null);
   const [defectTextDrafts, setDefectTextDrafts] = useState({});
+  const [defectDisciplineDrafts, setDefectDisciplineDrafts] = useState({});
   const [showRepeatDefects, setShowRepeatDefects] = useState(false);
   const [boatNameDraft, setBoatNameDraft] = useState("");
   const [commissioningEngineerDraft, setCommissioningEngineerDraft] = useState("");
@@ -50,7 +52,10 @@ export default function BoatLogPage({ params }) {
   const [isSavingBoat, setIsSavingBoat] = useState(false);
   const [isSavingEngineer, setIsSavingEngineer] = useState(false);
   const [isSavingAreas, setIsSavingAreas] = useState(false);
+  const [blankRowsByArea, setBlankRowsByArea] = useState({});
+  const [localDraftBoatId, setLocalDraftBoatId] = useState("");
   const latestStateRequest = useRef(0);
+  const savingDraftAreas = useRef(new Set());
 
   useEffect(() => {
     let isMounted = true;
@@ -129,6 +134,7 @@ export default function BoatLogPage({ params }) {
   const activeBoatId = boat?.id;
   const activeBoatName = boat?.name;
   const activeCommissioningEngineer = boat?.commissioningEngineer || "";
+  const localDraftKey = `hull-master:drafts:${params.boatId}`;
   const boatAreas = useMemo(() => getBoatAreas(boat), [boat]);
   const previousBoat = useMemo(() => findPreviousBoat(boat, state.boats), [boat, state.boats]);
   const repeatedDefectTexts = useMemo(() => {
@@ -150,6 +156,33 @@ export default function BoatLogPage({ params }) {
     return [...new Set([...COMMON_DEFECT_AREAS, ...fromCommonDefects])]
       .filter((area) => !existingAreas.has(area.toLowerCase()));
   }, [boatAreas, commonDefectsByArea]);
+
+  useEffect(() => {
+    if (!activeBoatId) return;
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(localDraftKey) || "{}");
+      setDrafts(saved.drafts || {});
+      setDefectTextDrafts(saved.defectTextDrafts || {});
+      setDefectDisciplineDrafts(saved.defectDisciplineDrafts || {});
+      setBlankRowsByArea(saved.blankRowsByArea || {});
+      if (typeof saved.newAreaName === "string") setNewAreaName(saved.newAreaName);
+    } catch {
+      window.localStorage.removeItem(localDraftKey);
+    } finally {
+      setLocalDraftBoatId(activeBoatId);
+    }
+  }, [activeBoatId, localDraftKey]);
+
+  useEffect(() => {
+    if (!activeBoatId || localDraftBoatId !== activeBoatId) return;
+    window.localStorage.setItem(localDraftKey, JSON.stringify({
+      drafts,
+      defectTextDrafts,
+      defectDisciplineDrafts,
+      blankRowsByArea,
+      newAreaName
+    }));
+  }, [activeBoatId, localDraftKey, localDraftBoatId, drafts, defectTextDrafts, defectDisciplineDrafts, blankRowsByArea, newAreaName]);
 
   useEffect(() => {
     if (activeBoatName) {
@@ -342,12 +375,29 @@ export default function BoatLogPage({ params }) {
     await saveBoatAreas(boatAreas.filter((item) => item !== area));
   }
 
+  async function toggleAreaComplete(area) {
+    const completed = new Set(boat.completedAreas || []);
+    completed.has(area) ? completed.delete(area) : completed.add(area);
+    updateBoatInState({ ...boat, completedAreas: [...completed] });
+
+    try {
+      const updatedBoat = await updateBoatCompletedAreas(boat.id, [...completed]);
+      updateBoatInState(updatedBoat);
+      setSaveError("");
+    } catch (updateError) {
+      updateBoatInState(boat);
+      setSaveError(updateError.message || "Could not save area progress.");
+    }
+  }
+
   async function saveDraftDefect(area, draftInput, options = {}) {
     const draft = draftInput || drafts[area] || { text: "", discipline: "" };
 
-    if (!draft.text.trim() || draft.isSaving) {
+    if (!draft.text.trim() || draft.isSaving || savingDraftAreas.current.has(area)) {
       return;
     }
+
+    savingDraftAreas.current.add(area);
 
     if (options.closeImmediately) {
       setDrafts((current) => ({
@@ -388,17 +438,31 @@ export default function BoatLogPage({ params }) {
         [area]: { text: "", discipline: "" }
       }));
       setSaveError("");
+      return nextDefect;
     } catch (createError) {
       setDrafts((current) => ({
         ...current,
         [area]: { ...draft, isSaving: false, isOpen: true }
       }));
       setSaveError(createError.message || "Could not save defect to Supabase.");
+      return null;
+    } finally {
+      savingDraftAreas.current.delete(area);
     }
   }
 
   async function addDefectFromBlank(area) {
     await saveDraftDefect(area);
+  }
+
+  async function addDefectAndContinue(area) {
+    const saved = await saveDraftDefect(area, null, { closeImmediately: true });
+    if (saved) {
+      setDrafts((current) => ({
+        ...current,
+        [area]: { text: "", discipline: "", isOpen: true }
+      }));
+    }
   }
 
   async function updateDefect(defectId, field, value) {
@@ -413,6 +477,10 @@ export default function BoatLogPage({ params }) {
       return;
     }
 
+    if (field === "discipline") {
+      setDefectDisciplineDrafts((current) => ({ ...current, [defectId]: value }));
+    }
+
     updateDefectInState(defectId, (defect) => ({
       ...defect,
       [field]: value
@@ -420,9 +488,26 @@ export default function BoatLogPage({ params }) {
 
     try {
       await updateDefectRecord(defectId, { [field]: value });
+      if (field === "discipline") {
+        setDefectDisciplineDrafts((current) => {
+          const next = { ...current };
+          delete next[defectId];
+          return next;
+        });
+      }
       setSaveError("");
     } catch (updateError) {
       setSaveError(updateError.message || "Could not update defect in Supabase.");
+    }
+  }
+
+  async function setDefectCallback(defectId, callbackRequestedAt) {
+    updateDefectInState(defectId, (defect) => ({ ...defect, callbackRequestedAt }));
+    try {
+      await updateDefectRecord(defectId, { callbackRequestedAt });
+      setSaveError("");
+    } catch (updateError) {
+      setSaveError(updateError.message || "Could not save callback status.");
     }
   }
 
@@ -547,7 +632,8 @@ export default function BoatLogPage({ params }) {
     try {
       const createdAt = await exportBoatReport(boat, {
         showRepeatDefects,
-        previousBoat
+        previousBoat,
+        blankRowsByArea
       });
       setReportDate(createdAt);
       setSaveError("");
@@ -792,7 +878,7 @@ export default function BoatLogPage({ params }) {
               />
             </form>
           </div>
-          <p className="autosave-note">{saveError || "Auto-saves to Supabase as you type"}</p>
+          <p className="autosave-note">{saveError || "Drafts save locally first, then sync to Supabase"}</p>
         </header>
 
         <div className="repeat-toggle-row">
@@ -838,6 +924,14 @@ export default function BoatLogPage({ params }) {
                     <tr className="area-row" key={`${area}-heading`}>
                       <td colSpan="3">
                         <span>{area}</span>
+                        <label className="area-complete-toggle">
+                          <input
+                            type="checkbox"
+                            checked={(boat.completedAreas || []).includes(area)}
+                            onChange={() => toggleAreaComplete(area)}
+                          />
+                          Audited
+                        </label>
                         <button
                           type="button"
                           onClick={() => removeArea(area)}
@@ -911,11 +1005,24 @@ export default function BoatLogPage({ params }) {
                               {defect.text}
                             </button>
                           )}
+                          <div className="defect-workflow-row">
+                            <label>
+                              Callback date
+                              <input
+                                type="date"
+                                value={defect.callbackRequestedAt || ""}
+                                onChange={(event) => setDefectCallback(defect.id, event.target.value)}
+                              />
+                            </label>
+                            {defect.callbackRequestedAt ? (
+                              <button type="button" onClick={() => setDefectCallback(defect.id, "")}>Clear callback</button>
+                            ) : null}
+                          </div>
                         </td>
                         <td>
                           <select
                             className="table-select"
-                            value={defect.discipline}
+                            value={defectDisciplineDrafts[defect.id] ?? defect.discipline}
                             onChange={(event) => updateDefect(defect.id, "discipline", event.target.value)}
                             aria-label={`${area} discipline`}
                           >
@@ -938,6 +1045,7 @@ export default function BoatLogPage({ params }) {
                             onChange={(value) => updateDraft(area, "text", value)}
                             onSelect={(selectedDefect) => selectDraftDefect(area, selectedDefect)}
                             onBlur={() => addDefectFromBlank(area)}
+                            onEnter={() => addDefectAndContinue(area)}
                             placeholder="Type a defect..."
                             ariaLabel={`${area} defect description`}
                             autoFocus
@@ -964,6 +1072,19 @@ export default function BoatLogPage({ params }) {
                         <button className="add-defect-button" type="button" onClick={() => openDraft(area)}>
                           +
                         </button>
+                        <label className="blank-row-control">
+                          Printable blank rows
+                          <input
+                            type="number"
+                            min="0"
+                            max="20"
+                            value={blankRowsByArea[area] || 0}
+                            onChange={(event) => setBlankRowsByArea((current) => ({
+                              ...current,
+                              [area]: Math.max(0, Math.min(20, Number(event.target.value) || 0))
+                            }))}
+                          />
+                        </label>
                       </td>
                     </tr>
                   </Fragment>
@@ -1113,6 +1234,7 @@ function DefectSearchInput({
   autoFocus = false,
   onBlur,
   onChange,
+  onEnter,
   onSelect,
   placeholder,
   suggestions,
@@ -1184,6 +1306,12 @@ function DefectSearchInput({
         className="table-input"
         value={value}
         onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && onEnter && value.trim()) {
+            event.preventDefault();
+            onEnter();
+          }
+        }}
         onFocus={() => setIsFocused(true)}
         onBlur={() => {
           if (isSelectingSuggestion.current) {
