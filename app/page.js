@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BOAT_MODELS,
   BOAT_NAME_PATTERN,
@@ -19,6 +19,26 @@ export default function HomePage() {
   const [hasLoaded, setHasLoaded] = useState(false);
   const [isAddingBoat, setIsAddingBoat] = useState(false);
   const [selectedModel, setSelectedModel] = useState("all");
+  const pendingMutations = useRef(0);
+  const queuedRealtimeRefresh = useRef(false);
+  const refreshStateRef = useRef(null);
+  const refreshTimer = useRef(null);
+
+  async function runSupabaseMutation(mutation) {
+    pendingMutations.current += 1;
+
+    try {
+      return await mutation();
+    } finally {
+      pendingMutations.current -= 1;
+
+      if (pendingMutations.current === 0 && queuedRealtimeRefresh.current) {
+        queuedRealtimeRefresh.current = false;
+        window.clearTimeout(refreshTimer.current);
+        refreshTimer.current = window.setTimeout(() => refreshStateRef.current?.(), 80);
+      }
+    }
+  }
 
   useEffect(() => {
     let isMounted = true;
@@ -28,6 +48,11 @@ export default function HomePage() {
         const nextState = await loadState();
 
         if (isMounted) {
+          if (pendingMutations.current > 0) {
+            queuedRealtimeRefresh.current = true;
+            return;
+          }
+
           setState(nextState);
           setError("");
         }
@@ -42,11 +67,21 @@ export default function HomePage() {
       }
     }
 
+    refreshStateRef.current = refreshState;
     refreshState();
-    const unsubscribe = subscribeToStateChanges(refreshState);
+    const unsubscribe = subscribeToStateChanges(() => {
+      if (pendingMutations.current > 0) {
+        queuedRealtimeRefresh.current = true;
+        return;
+      }
+
+      refreshState();
+    });
 
     return () => {
       isMounted = false;
+      refreshStateRef.current = null;
+      window.clearTimeout(refreshTimer.current);
       unsubscribe();
     };
   }, []);
@@ -121,7 +156,7 @@ export default function HomePage() {
     }
 
     try {
-      const nextBoat = await createBoat(normalizedName, normalizedEngineer);
+      const nextBoat = await runSupabaseMutation(() => createBoat(normalizedName, normalizedEngineer));
 
       setState((current) => ({
         boats: [nextBoat, ...current.boats]

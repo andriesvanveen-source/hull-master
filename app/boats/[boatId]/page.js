@@ -57,6 +57,26 @@ export default function BoatLogPage({ params }) {
   const [localDraftBoatId, setLocalDraftBoatId] = useState("");
   const latestStateRequest = useRef(0);
   const savingDraftAreas = useRef(new Set());
+  const pendingMutations = useRef(0);
+  const queuedRealtimeRefresh = useRef(false);
+  const refreshStateRef = useRef(null);
+  const refreshTimer = useRef(null);
+
+  async function runSupabaseMutation(mutation) {
+    pendingMutations.current += 1;
+
+    try {
+      return await mutation();
+    } finally {
+      pendingMutations.current -= 1;
+
+      if (pendingMutations.current === 0 && queuedRealtimeRefresh.current) {
+        queuedRealtimeRefresh.current = false;
+        window.clearTimeout(refreshTimer.current);
+        refreshTimer.current = window.setTimeout(() => refreshStateRef.current?.(), 80);
+      }
+    }
+  }
 
   useEffect(() => {
     let isMounted = true;
@@ -69,6 +89,11 @@ export default function BoatLogPage({ params }) {
         const nextState = await loadState();
 
         if (isMounted && requestId === latestStateRequest.current) {
+          if (pendingMutations.current > 0) {
+            queuedRealtimeRefresh.current = true;
+            return;
+          }
+
           setState(nextState);
           setSaveError("");
         }
@@ -84,11 +109,21 @@ export default function BoatLogPage({ params }) {
       }
     }
 
+    refreshStateRef.current = refreshState;
     refreshState();
-    const unsubscribe = subscribeToStateChanges(refreshState);
+    const unsubscribe = subscribeToStateChanges(() => {
+      if (pendingMutations.current > 0) {
+        queuedRealtimeRefresh.current = true;
+        return;
+      }
+
+      refreshState();
+    });
 
     return () => {
       isMounted = false;
+      refreshStateRef.current = null;
+      window.clearTimeout(refreshTimer.current);
       unsubscribe();
     };
   }, []);
@@ -323,7 +358,9 @@ export default function BoatLogPage({ params }) {
     setIsSavingAreas(true);
 
     try {
-      const updatedBoat = await updateBoatAreas(boat.id, orderBoatAreas(nextAreas));
+      const updatedBoat = await runSupabaseMutation(() => (
+        updateBoatAreas(boat.id, orderBoatAreas(nextAreas))
+      ));
       updateBoatInState(updatedBoat);
       setSaveError("");
       return updatedBoat;
@@ -389,7 +426,9 @@ export default function BoatLogPage({ params }) {
     setIsSavingAreaProgress(true);
 
     try {
-      const updatedBoat = await updateBoatCompletedAreas(boat.id, [...completed]);
+      const updatedBoat = await runSupabaseMutation(() => (
+        updateBoatCompletedAreas(boat.id, [...completed])
+      ));
       updateBoatInState({
         ...boat,
         completedAreas: updatedBoat.completedAreas
@@ -403,6 +442,20 @@ export default function BoatLogPage({ params }) {
     }
   }
 
+  function restoreDefectToState(defect, originalIndex) {
+    setState((current) => ({
+      boats: current.boats.map((item) => {
+        if (item.id !== params.boatId || item.defects.some((entry) => entry.id === defect.id)) {
+          return item;
+        }
+
+        const defects = [...item.defects];
+        defects.splice(Math.min(originalIndex, defects.length), 0, defect);
+        return { ...item, defects };
+      })
+    }));
+  }
+
   async function setAllAreasComplete(shouldComplete) {
     if (isSavingAreaProgress) {
       return;
@@ -413,7 +466,9 @@ export default function BoatLogPage({ params }) {
     setIsSavingAreaProgress(true);
 
     try {
-      const updatedBoat = await updateBoatCompletedAreas(boat.id, nextCompletedAreas);
+      const updatedBoat = await runSupabaseMutation(() => (
+        updateBoatCompletedAreas(boat.id, nextCompletedAreas)
+      ));
       updateBoatInState({
         ...boat,
         completedAreas: updatedBoat.completedAreas
@@ -449,12 +504,12 @@ export default function BoatLogPage({ params }) {
     }
 
     try {
-      const nextDefect = await createDefect({
+      const nextDefect = await runSupabaseMutation(() => createDefect({
         boatId: params.boatId,
         text: draft.text,
         discipline: draft.discipline,
         area
-      });
+      }));
 
       setState((current) => ({
         boats: current.boats.map((item) => {
@@ -504,13 +559,7 @@ export default function BoatLogPage({ params }) {
 
   async function updateDefect(defectId, field, value) {
     if (field === "text" && !value.trim()) {
-      try {
-        await deleteDefect(defectId);
-        removeDefectFromState(defectId);
-        setSaveError("");
-      } catch (deleteError) {
-        setSaveError(deleteError.message || "Could not delete defect from Supabase.");
-      }
+      await removeDefect(defectId);
       return;
     }
 
@@ -524,7 +573,7 @@ export default function BoatLogPage({ params }) {
     }));
 
     try {
-      await updateDefectRecord(defectId, { [field]: value });
+      await runSupabaseMutation(() => updateDefectRecord(defectId, { [field]: value }));
       if (field === "discipline") {
         setDefectDisciplineDrafts((current) => {
           const next = { ...current };
@@ -539,13 +588,22 @@ export default function BoatLogPage({ params }) {
   }
 
   async function removeDefect(defectId) {
+    const originalIndex = boat.defects.findIndex((defect) => defect.id === defectId);
+    const removedDefect = boat.defects[originalIndex];
+
+    if (!removedDefect) {
+      return;
+    }
+
+    setEditingDefectId((current) => (current === defectId ? null : current));
+    clearDefectTextDraft(defectId);
+    removeDefectFromState(defectId);
+
     try {
-      await deleteDefect(defectId);
-      setEditingDefectId((current) => (current === defectId ? null : current));
-      clearDefectTextDraft(defectId);
-      removeDefectFromState(defectId);
+      await runSupabaseMutation(() => deleteDefect(defectId));
       setSaveError("");
     } catch (deleteError) {
+      restoreDefectToState(removedDefect, originalIndex);
       setSaveError(deleteError.message || "Could not delete defect from Supabase.");
     }
   }
@@ -611,7 +669,7 @@ export default function BoatLogPage({ params }) {
     }));
 
     try {
-      await updateDefectRecord(defectId, patch);
+      await runSupabaseMutation(() => updateDefectRecord(defectId, patch));
       clearDefectTextDraft(defectId);
       setSaveError("");
     } catch (updateError) {
@@ -640,10 +698,10 @@ export default function BoatLogPage({ params }) {
     clearDefectTextDraft(defectId);
 
     try {
-      await updateDefectRecord(defectId, {
+      await runSupabaseMutation(() => updateDefectRecord(defectId, {
         text: selectedDefect.text,
         discipline: selectedDefect.discipline
-      });
+      }));
       setEditingDefectId(null);
       setSaveError("");
     } catch (updateError) {
@@ -705,7 +763,7 @@ export default function BoatLogPage({ params }) {
     setIsSavingBoat(true);
 
     try {
-      const updatedBoat = await updateBoatName(boat.id, normalizedName);
+      const updatedBoat = await runSupabaseMutation(() => updateBoatName(boat.id, normalizedName));
 
       updateBoatInState(updatedBoat);
       setBoatNameDraft(updatedBoat.name);
@@ -730,7 +788,9 @@ export default function BoatLogPage({ params }) {
     setIsSavingEngineer(true);
 
     try {
-      const updatedBoat = await updateBoatCommissioningEngineer(boat.id, normalizedEngineer);
+      const updatedBoat = await runSupabaseMutation(() => (
+        updateBoatCommissioningEngineer(boat.id, normalizedEngineer)
+      ));
 
       updateBoatInState(updatedBoat);
       setCommissioningEngineerDraft(updatedBoat.commissioningEngineer || "");
@@ -750,7 +810,7 @@ export default function BoatLogPage({ params }) {
     }
 
     try {
-      await deleteBoat(boat.id);
+      await runSupabaseMutation(() => deleteBoat(boat.id));
       router.push("/");
     } catch (deleteError) {
       setSaveError(deleteError.message || "Could not delete boat.");
@@ -778,7 +838,7 @@ export default function BoatLogPage({ params }) {
     }
 
     try {
-      const nextBoat = await duplicateBoat(boat, normalizedName);
+      const nextBoat = await runSupabaseMutation(() => duplicateBoat(boat, normalizedName));
       router.push(`/boats/${nextBoat.id}`);
     } catch (duplicateError) {
       setSaveError(duplicateError.message || "Could not duplicate boat.");
