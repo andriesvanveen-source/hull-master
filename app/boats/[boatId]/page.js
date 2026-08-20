@@ -390,7 +390,10 @@ export default function BoatLogPage({ params }) {
 
     try {
       const updatedBoat = await updateBoatCompletedAreas(boat.id, [...completed]);
-      updateBoatInState(updatedBoat);
+      updateBoatInState({
+        ...boat,
+        completedAreas: updatedBoat.completedAreas
+      });
       setSaveError("");
     } catch (updateError) {
       updateBoatInState(boat);
@@ -411,7 +414,10 @@ export default function BoatLogPage({ params }) {
 
     try {
       const updatedBoat = await updateBoatCompletedAreas(boat.id, nextCompletedAreas);
-      updateBoatInState(updatedBoat);
+      updateBoatInState({
+        ...boat,
+        completedAreas: updatedBoat.completedAreas
+      });
       setSaveError("");
     } catch (updateError) {
       updateBoatInState(boat);
