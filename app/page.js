@@ -6,10 +6,13 @@ import {
   BOAT_MODELS,
   BOAT_NAME_PATTERN,
   COMMISSIONING_ENGINEER_PLACEHOLDER,
-  COMMISSIONING_ENGINEERS
+  COMMISSIONING_ENGINEERS,
+  getBoatAreas
 } from "../lib/constants";
 import { exportBoatReport } from "../lib/pdfReport";
-import { createBoat, loadState, subscribeToStateChanges } from "../lib/storage";
+import { createBoat, loadBoat, loadRegisterState, subscribeToStateChanges } from "../lib/storage";
+
+const REGISTER_CACHE_KEY = "hull-master:register-cache:v1";
 
 export default function HomePage() {
   const [state, setState] = useState({ boats: [] });
@@ -43,9 +46,19 @@ export default function HomePage() {
   useEffect(() => {
     let isMounted = true;
 
+    try {
+      const cachedState = JSON.parse(window.localStorage.getItem(REGISTER_CACHE_KEY) || "null");
+      if (Array.isArray(cachedState?.boats)) {
+        setState(cachedState);
+        setHasLoaded(true);
+      }
+    } catch {
+      window.localStorage.removeItem(REGISTER_CACHE_KEY);
+    }
+
     async function refreshState() {
       try {
-        const nextState = await loadState();
+        const nextState = await loadRegisterState();
 
         if (isMounted) {
           if (pendingMutations.current > 0) {
@@ -86,10 +99,20 @@ export default function HomePage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (hasLoaded) {
+      try {
+        window.localStorage.setItem(REGISTER_CACHE_KEY, JSON.stringify(state));
+      } catch {
+        window.localStorage.removeItem(REGISTER_CACHE_KEY);
+      }
+    }
+  }, [hasLoaded, state]);
+
   const totals = useMemo(() => {
     return state.boats.reduce(
       (acc, boat) => {
-        acc.defects += boat.defects.length;
+        acc.defects += boat.defectCount || 0;
         return acc;
       },
       { boats: state.boats.length, defects: 0 }
@@ -105,6 +128,10 @@ export default function HomePage() {
   }, [selectedModel, state.boats]);
 
   function getBoatUpdatedAt(boat) {
+    if (boat.defects.length === 0) {
+      return new Date(boat.updatedAt || boat.createdAt || 0);
+    }
+
     return boat.defects.reduce((latest, defect) => {
       const defectDate = new Date(defect.createdAt || boat.createdAt || 0);
       return defectDate > latest ? defectDate : latest;
@@ -172,7 +199,15 @@ export default function HomePage() {
 
   async function handleExportBoatReport(boat) {
     try {
-      await exportBoatReport(boat);
+      const fullBoat = await loadBoat(boat.id);
+      const auditedAreas = getBoatAreas(fullBoat)
+        .filter((area) => (fullBoat.completedAreas || []).includes(area));
+
+      if (auditedAreas.length === 0) {
+        throw new Error("Select at least one area as audited before exporting the PDF.");
+      }
+
+      await exportBoatReport(fullBoat, { areas: auditedAreas });
       setError("");
     } catch (exportError) {
       setError(exportError.message || "Could not export PDF report.");
@@ -274,7 +309,8 @@ export default function HomePage() {
             <div className="boat-list">
               {visibleBoats.map((boat) => {
                 const updatedAt = getBoatUpdatedAt(boat);
-                const defectLabel = boat.defects.length === 1 ? "defect" : "defects";
+                const defectCount = boat.defectCount || 0;
+                const defectLabel = defectCount === 1 ? "defect" : "defects";
                 const engineer = boat.commissioningEngineer || COMMISSIONING_ENGINEER_PLACEHOLDER;
 
                 return (
@@ -282,7 +318,7 @@ export default function HomePage() {
                     <Link className="boat-main-link" href={`/boats/${boat.id}`}>
                       <span className="boat-name">{boat.name}</span>
                       <span className="boat-meta">
-                        {boat.defects.length} {defectLabel}{" \u00b7 "}updated {formatRelativeTime(updatedAt)}<br />
+                        {defectCount} {defectLabel}{" \u00b7 "}updated {formatRelativeTime(updatedAt)}<br />
                         Engineer: {engineer}
                       </span>
                     </Link>

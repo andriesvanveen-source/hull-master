@@ -23,14 +23,16 @@ import {
   deleteDefect,
   duplicateBoat,
   loadCommonDefects,
-  loadState,
-  subscribeToStateChanges,
+  loadBoatEditorState,
+  subscribeToBoatChanges,
   updateBoatAreas,
   updateBoatCompletedAreas,
   updateBoatCommissioningEngineer,
   updateBoatName,
   updateDefectRecord
 } from "../../../lib/storage";
+
+const boatCacheKey = (boatId) => `hull-master:boat-cache:v1:${boatId}`;
 
 export default function BoatLogPage({ params }) {
   const router = useRouter();
@@ -81,12 +83,22 @@ export default function BoatLogPage({ params }) {
   useEffect(() => {
     let isMounted = true;
 
+    try {
+      const cachedState = JSON.parse(window.localStorage.getItem(boatCacheKey(params.boatId)) || "null");
+      if (Array.isArray(cachedState?.boats)) {
+        setState(cachedState);
+        setHasLoaded(true);
+      }
+    } catch {
+      window.localStorage.removeItem(boatCacheKey(params.boatId));
+    }
+
     async function refreshState() {
       const requestId = latestStateRequest.current + 1;
       latestStateRequest.current = requestId;
 
       try {
-        const nextState = await loadState();
+        const nextState = await loadBoatEditorState(params.boatId);
 
         if (isMounted && requestId === latestStateRequest.current) {
           if (pendingMutations.current > 0) {
@@ -111,7 +123,7 @@ export default function BoatLogPage({ params }) {
 
     refreshStateRef.current = refreshState;
     refreshState();
-    const unsubscribe = subscribeToStateChanges(() => {
+    const unsubscribe = subscribeToBoatChanges(params.boatId, () => {
       if (pendingMutations.current > 0) {
         queuedRealtimeRefresh.current = true;
         return;
@@ -126,7 +138,17 @@ export default function BoatLogPage({ params }) {
       window.clearTimeout(refreshTimer.current);
       unsubscribe();
     };
-  }, []);
+  }, [params.boatId]);
+
+  useEffect(() => {
+    if (hasLoaded && state.boats.some((boat) => boat.id === params.boatId)) {
+      try {
+        window.localStorage.setItem(boatCacheKey(params.boatId), JSON.stringify(state));
+      } catch {
+        window.localStorage.removeItem(boatCacheKey(params.boatId));
+      }
+    }
+  }, [hasLoaded, params.boatId, state]);
 
   useEffect(() => {
     let isMounted = true;
