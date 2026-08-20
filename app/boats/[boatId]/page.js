@@ -861,11 +861,20 @@ export default function BoatLogPage({ params }) {
 
     try {
       const nextBoat = await runSupabaseMutation(() => duplicateBoat(boat, normalizedName));
-      setState((current) => ({
-        boats: current.boats.some((item) => item.id === nextBoat.id)
-          ? current.boats
-          : [nextBoat, ...current.boats]
-      }));
+      const nextState = {
+        boats: state.boats.some((item) => item.id === nextBoat.id)
+          ? state.boats.map((item) => (item.id === nextBoat.id ? nextBoat : item))
+          : [nextBoat, ...state.boats]
+      };
+
+      setState(nextState);
+
+      try {
+        window.localStorage.setItem(boatCacheKey(nextBoat.id), JSON.stringify(nextState));
+      } catch {
+        window.localStorage.removeItem(boatCacheKey(nextBoat.id));
+      }
+
       setSaveError("");
       router.push(`/boats/${nextBoat.id}`);
     } catch (duplicateError) {
