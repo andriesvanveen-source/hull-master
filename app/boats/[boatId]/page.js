@@ -923,36 +923,28 @@ export default function BoatLogPage({ params }) {
                   <Fragment key={area}>
                     <tr className="area-row" key={`${area}-heading`}>
                       <td colSpan="3">
-                        <span>{area}</span>
-                        <label className="area-complete-toggle">
-                          <input
-                            type="checkbox"
-                            checked={(boat.completedAreas || []).includes(area)}
-                            onChange={() => toggleAreaComplete(area)}
-                          />
-                          Audited
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => removeArea(area)}
-                          disabled={isSavingAreas || isPinnedGeneralArea || defects.length > 0 || boatAreas.length <= 1}
-                          title={isPinnedGeneralArea ? `${GENERAL_AREA} always stays at the bottom` : defects.length > 0 ? "Remove this area's defects before removing the area" : "Remove area"}
-                          style={{
-                            float: "right",
-                            minHeight: "24px",
-                            border: "1px solid rgba(255,255,255,0.5)",
-                            borderRadius: "999px",
-                            padding: "0 10px",
-                            background: "rgba(255,255,255,0.12)",
-                            color: "inherit",
-                            fontFamily: "Arial, Helvetica, sans-serif",
-                            fontSize: "12px",
-                            fontWeight: 800,
-                            opacity: isPinnedGeneralArea || defects.length > 0 || boatAreas.length <= 1 ? 0.45 : 1
-                          }}
-                        >
-                          Remove
-                        </button>
+                        <div className="area-heading-content">
+                          <span>{area}</span>
+                          <div className="area-heading-actions">
+                            <label className="area-complete-toggle">
+                              <input
+                                type="checkbox"
+                                checked={(boat.completedAreas || []).includes(area)}
+                                onChange={() => toggleAreaComplete(area)}
+                              />
+                              <span>Audited</span>
+                            </label>
+                            <button
+                              className="area-remove-button"
+                              type="button"
+                              onClick={() => removeArea(area)}
+                              disabled={isSavingAreas || isPinnedGeneralArea || defects.length > 0 || boatAreas.length <= 1}
+                              title={isPinnedGeneralArea ? `${GENERAL_AREA} always stays at the bottom` : defects.length > 0 ? "Remove this area's defects before removing the area" : "Remove area"}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
                       </td>
                     </tr>
                     {defects.map((defect) => {
@@ -1006,17 +998,17 @@ export default function BoatLogPage({ params }) {
                             </button>
                           )}
                           <div className="defect-workflow-row">
-                            <label>
-                              Callback date
+                            <label className="callback-toggle">
                               <input
-                                type="date"
-                                value={defect.callbackRequestedAt || ""}
-                                onChange={(event) => setDefectCallback(defect.id, event.target.value)}
+                                type="checkbox"
+                                checked={Boolean(defect.callbackRequestedAt)}
+                                onChange={(event) => setDefectCallback(
+                                  defect.id,
+                                  event.target.checked ? formatLocalDate(new Date()) : ""
+                                )}
                               />
+                              Callback
                             </label>
-                            {defect.callbackRequestedAt ? (
-                              <button type="button" onClick={() => setDefectCallback(defect.id, "")}>Clear callback</button>
-                            ) : null}
                           </div>
                         </td>
                         <td>
@@ -1181,6 +1173,13 @@ export default function BoatLogPage({ params }) {
       </main>
     </div>
   );
+}
+
+function formatLocalDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function parseBoatSequence(name) {

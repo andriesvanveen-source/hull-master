@@ -923,20 +923,52 @@ textarea:focus {
   vertical-align: middle;
 }
 
+.area-heading-content,
+.area-heading-actions,
 .area-complete-toggle {
-  float: right;
   display: inline-flex;
   align-items: center;
+}
+
+.area-heading-content {
+  width: 100%;
+  min-height: 40px;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.area-heading-actions {
+  gap: 12px;
+  flex-shrink: 0;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.area-complete-toggle {
   gap: 6px;
-  margin-right: 12px;
   font-size: 12px;
   font-weight: 800;
+  line-height: 1;
 }
 
 .area-complete-toggle input {
   width: 18px;
   height: 18px;
   accent-color: #5fcf8b;
+  margin: 0;
+}
+
+.area-remove-button {
+  min-height: 26px;
+  border: 1px solid rgba(255,255,255,0.5);
+  border-radius: 999px;
+  padding: 0 10px;
+  background: rgba(255,255,255,0.12);
+  color: inherit;
+  font: 800 12px Arial, Helvetica, sans-serif;
+}
+
+.area-remove-button:disabled {
+  opacity: 0.45;
 }
 
 .defect-workflow-row {
@@ -961,6 +993,13 @@ textarea:focus {
   border-radius: 5px;
   background: #fff;
   font: inherit;
+}
+
+.callback-toggle input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #b9382c;
 }
 
 .blank-row-control {
