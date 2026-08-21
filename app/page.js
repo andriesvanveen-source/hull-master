@@ -12,7 +12,7 @@ import {
 import { exportBoatReport } from "../lib/pdfReport";
 import { createBoat, loadBoat, loadRegisterState, subscribeToStateChanges } from "../lib/storage";
 
-const REGISTER_CACHE_KEY = "hull-master:register-cache:v1";
+const REGISTER_CACHE_KEY = "hull-master:register-cache:v2";
 
 export default function HomePage() {
   const [state, setState] = useState({ boats: [] });
