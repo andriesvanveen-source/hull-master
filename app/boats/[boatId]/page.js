@@ -1179,7 +1179,16 @@ export default function BoatLogPage({ params }) {
                             suggestions={getDefectSuggestions(drafts[area]?.text || "", area)}
                             onChange={(value) => updateDraft(area, "text", value)}
                             onSelect={(selectedDefect) => selectDraftDefect(area, selectedDefect)}
-                            onBlur={() => addDefectFromBlank(area)}
+                            onBlur={(event) => {
+                              const nextTarget = event.relatedTarget;
+                              const currentRow = event.currentTarget.closest("tr");
+
+                              if (nextTarget instanceof HTMLElement && nextTarget.closest("tr") === currentRow) {
+                                return;
+                              }
+
+                              addDefectFromBlank(area);
+                            }}
                             onEnter={() => addDefectAndContinue(area)}
                             placeholder="Type a defect..."
                             ariaLabel={`${area} defect description`}
@@ -1465,12 +1474,12 @@ function DefectSearchInput({
           }
         }}
         onFocus={() => setIsFocused(true)}
-        onBlur={() => {
+        onBlur={(event) => {
           if (isSelectingSuggestion.current) {
             return;
           }
           window.setTimeout(() => setIsFocused(false), 120);
-          onBlur?.();
+          onBlur?.(event);
         }}
         placeholder={placeholder}
         aria-label={ariaLabel}
@@ -1500,3 +1509,4 @@ function DefectSearchInput({
     </div>
   );
 }
+
