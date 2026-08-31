@@ -1,0 +1,22 @@
+.back {
+  position: fixed;
+  z-index: 1000;
+  left: 16px;
+  bottom: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 7px 11px;
+  border: 1px solid rgba(20, 43, 59, .18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .94);
+  box-shadow: 0 4px 16px rgba(20, 43, 59, .12);
+  color: #142b3b;
+  font: 600 12px/1 Arial, sans-serif;
+  text-decoration: none;
+  backdrop-filter: blur(8px);
+}
+
+.back:hover { border-color: #14747a; color: #14747a; }
+.back:focus-visible { outline: 2px solid #14747a; outline-offset: 2px; }

@@ -3,6 +3,7 @@
 import { ArrowLeft, Camera, Download, FileText, Plus, Ship, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import jsPDF from "jspdf";
+import HomeBackButton from "../components/HomeBackButton";
 
 const STORAGE_KEY = "harbour-audit-buddy-audits";
 
@@ -357,6 +358,7 @@ export default function HomePage() {
   if (activeAudit) {
     return (
       <>
+        <HomeBackButton />
         <header className="detail-topbar">
           <div className="detail-inner">
             <button className="icon-button" type="button" onClick={() => setActiveId(null)} aria-label="Back">
@@ -434,6 +436,7 @@ export default function HomePage() {
 
   return (
     <>
+      <HomeBackButton />
       <header className="topbar">
         <div className="topbar-inner">
           <div className="brand-icon">
@@ -521,4 +524,3 @@ export default function HomePage() {
     </>
   );
 }
-

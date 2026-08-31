@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import HomeBackButton from "../components/HomeBackButton";
 import {
   BOAT_MODELS,
   BOAT_NAME_PATTERN,
@@ -216,6 +217,7 @@ export default function HomePage() {
 
   return (
     <div className="register-shell">
+      <HomeBackButton />
       <main className="register-page">
         <header className="register-topbar">
           <div className="register-brand">
@@ -340,5 +342,4 @@ export default function HomePage() {
     </div>
   );
 }
-
 

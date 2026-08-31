@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import HomeBackButton from "../components/HomeBackButton";
 import { createPdfObjectUrl } from "../../lib/pdfDownloads";
 
 function revokeUrls(items) {
@@ -87,6 +88,7 @@ export default function HomePage() {
 
   return (
     <main className="page">
+      <HomeBackButton />
       <header className="hero">
         <h1>R&C Sign Off</h1>
         <p>Upload Exception Report PDFs. Each photo gets a sign-off table next to it.</p>
@@ -143,4 +145,3 @@ export default function HomePage() {
     </main>
   );
 }
-
