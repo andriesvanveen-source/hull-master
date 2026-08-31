@@ -1,0 +1,200 @@
+:root {
+  --background: #f7fbfd;
+  --foreground: #182235;
+  --muted: #64748b;
+  --border: #d9e1e8;
+  --card: #ffffff;
+  --primary: #173f73;
+  --primary-hover: #12335e;
+  --danger: #b42318;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Karla, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.page {
+  width: min(576px, 100%);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 204px 24px 64px;
+  text-align: center;
+}
+
+.hero h1 {
+  margin: 0;
+  color: #111827;
+  font-family: Fraunces, Georgia, "Times New Roman", serif;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 36px;
+  letter-spacing: 0;
+}
+
+.hero p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.drop-card {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 154px;
+  margin-top: 36px;
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  padding: 40px;
+  transition: border-color 160ms ease, opacity 160ms ease;
+}
+
+.drop-card:hover,
+.drop-card.processing {
+  border-color: var(--primary);
+}
+
+.hidden-input {
+  display: none;
+}
+
+.choose-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 132px;
+  height: 44px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--primary);
+  color: #f8fafc;
+  padding: 0 24px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  cursor: pointer;
+}
+
+.choose-button:hover {
+  background: var(--primary-hover);
+}
+
+.choose-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.drop-card p {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.error-message {
+  margin: 16px auto 0;
+  color: var(--danger);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.archive-section {
+  margin-top: 40px;
+}
+
+.archive-button,
+.clear-button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 0;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  cursor: pointer;
+}
+
+.archive-button:hover,
+.clear-button:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.archive-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+  text-align: left;
+}
+
+.download-item {
+  display: block;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.78);
+  padding: 12px 14px;
+  color: var(--foreground);
+  text-decoration: none;
+}
+
+.download-item:hover {
+  border-color: var(--primary);
+}
+
+.download-item span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.download-item small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.clear-button {
+  justify-self: center;
+  margin-top: 4px;
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding-top: 120px;
+  }
+
+  .drop-card {
+    padding: 32px 20px;
+  }
+}
+
