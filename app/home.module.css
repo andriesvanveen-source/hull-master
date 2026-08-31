@@ -12,18 +12,13 @@
   text-align: center;
 }
 
-.mark {
-  display: grid;
-  place-items: center;
-  width: 48px;
-  height: 48px;
+.logo {
+  display: block;
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
   margin: 0 auto 16px;
   border-radius: 50%;
-  background: #142b3b;
-  color: white;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: .08em;
 }
 
 .header h1 {

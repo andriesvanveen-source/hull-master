@@ -11,12 +11,16 @@ export default function HomePage() {
   return (
     <main className={styles.shell}>
       <header className={styles.header}>
-        <span className={styles.mark}>HM</span>
-        <h1>Hullmaster</h1>
+        <img
+          className={styles.logo}
+          src="/robertson-caine-logo.png"
+          alt="Robertson and Caine International Yachts"
+        />
+        <h1>Hull Master</h1>
         <p>Select an application</p>
       </header>
 
-      <nav className={styles.grid} aria-label="Hullmaster applications">
+      <nav className={styles.grid} aria-label="Hull Master applications">
         {apps.map((app) => (
           <Link className={styles.card} href={app.href} key={app.href}>
             <span className={styles.icon}>{app.icon}</span>
