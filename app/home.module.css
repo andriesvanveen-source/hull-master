@@ -1,7 +1,9 @@
 .shell {
   min-height: 100vh;
-  background: #f4f2ec;
-  color: #142b3b;
+  background:
+    linear-gradient(rgba(5, 20, 34, .42), rgba(5, 20, 34, .52)),
+    url("/hull-master-home-background.jpeg") center / cover no-repeat;
+  color: #fff;
   padding: 56px 24px;
   font-family: Arial, sans-serif;
 }
@@ -14,8 +16,8 @@
 
 .logo {
   display: block;
-  width: 56px;
-  height: 56px;
+  width: 82px;
+  height: 82px;
   object-fit: contain;
   margin: 0 auto 16px;
   border-radius: 50%;
@@ -28,7 +30,7 @@
 
 .header p {
   margin: 10px 0 0;
-  color: #66747d;
+  color: rgba(255, 255, 255, .86);
   font-size: 14px;
 }
 
@@ -49,7 +51,7 @@
   padding: 20px;
   border: 1px solid #d9d8d2;
   border-radius: 8px;
-  background: white;
+  background: rgba(255, 255, 255, .94);
   color: #142b3b;
   text-decoration: none;
   font-size: 16px;

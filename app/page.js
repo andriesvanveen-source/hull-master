@@ -13,7 +13,7 @@ export default function HomePage() {
       <header className={styles.header}>
         <img
           className={styles.logo}
-          src="/robertson-caine-logo.png"
+          src="/robertson-caine-logo-transparent.png"
           alt="Robertson and Caine International Yachts"
         />
         <h1>Hull Master</h1>
