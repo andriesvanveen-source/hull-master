@@ -251,7 +251,19 @@ async function exportAuditPdf(audit) {
     doc.text("No defects recorded.", margin, y);
   }
 
-  doc.save(`${audit.title} Audit.pdf`);
+  const fileName = `${audit.title} Audit.pdf`.replace(/[\\/:*?"<>|]+/g, "-");
+  const pdfBlob = doc.output("blob");
+  const pdfFile = new File([pdfBlob], fileName, { type: "application/pdf" });
+  const canShareFile = typeof navigator.share === "function"
+    && typeof navigator.canShare === "function"
+    && navigator.canShare({ files: [pdfFile] });
+
+  if (canShareFile) {
+    await navigator.share({ files: [pdfFile] });
+    return;
+  }
+
+  doc.save(fileName);
 }
 
 export default function HomePage() {
@@ -350,7 +362,10 @@ export default function HomePage() {
     try {
       setError("");
       await exportAuditPdf(audit);
-    } catch {
+    } catch (exportError) {
+      if (exportError?.name === "AbortError") {
+        return;
+      }
       setError("The PDF export failed. Try using JPG or PNG photos and export again.");
     }
   }
