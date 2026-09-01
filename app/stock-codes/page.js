@@ -9,12 +9,13 @@ import {
   loadStockState,
   saveStockStateLocally,
   syncCategory,
+  syncDeleteStockItem,
   syncStockItem
 } from "../../lib/stockCodesStorage";
 import styles from "./stockCodes.module.css";
 
 export default function StockCodesPage() {
-  const [state, setState] = useState({ categories: [], items: [] });
+  const [state, setState] = useState({ categories: [], items: [], deletedItems: [] });
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [view, setView] = useState("list");
@@ -30,6 +31,7 @@ export default function StockCodesPage() {
         setState(remote);
         remote.categories.filter((category) => category.pendingSync).forEach(retryCategory);
         remote.items.filter((item) => item.pendingSync).forEach(retryItem);
+        remote.deletedItems.forEach(retryDeletedItem);
       })
       .catch((error) => setMessage(`Working locally. ${error.message || "Supabase is not ready."}`));
     // This startup pass intentionally runs once; later changes are already persisted by the mutation helpers.
@@ -74,6 +76,17 @@ export default function StockCodesPage() {
     try { replaceItem(await syncStockItem(item)); } catch { /* Remains queued locally. */ }
   }
 
+  async function retryDeletedItem(item) {
+    try {
+      await syncDeleteStockItem(item);
+      setState((current) => {
+        const next = { ...current, deletedItems: current.deletedItems.filter((entry) => entry.id !== item.id) };
+        saveStockStateLocally(next);
+        return next;
+      });
+    } catch { /* Remains queued locally. */ }
+  }
+
   async function addItem(form) {
     const formData = new FormData(form);
     const categoryChoice = String(formData.get("categoryId") || "");
@@ -103,6 +116,7 @@ export default function StockCodesPage() {
     if (!item.stockCode || !item.description) throw new Error("Stock code and description are required.");
 
     const nextState = {
+      ...state,
       categories: categoryChoice === "new" ? [...state.categories, category] : state.categories,
       items: [item, ...state.items]
     };
@@ -121,8 +135,83 @@ export default function StockCodesPage() {
     }
   }
 
+  async function updateItem(form) {
+    const formData = new FormData(form);
+    const categoryChoice = String(formData.get("categoryId") || "");
+    const newCategoryName = String(formData.get("newCategory") || "").trim();
+    let category = state.categories.find((entry) => entry.id === categoryChoice);
+
+    if (categoryChoice === "new") {
+      if (!newCategoryName) throw new Error("Enter the new category name.");
+      category = { id: crypto.randomUUID(), name: newCategoryName, pendingSync: true };
+    }
+    if (!category || !selectedItem) throw new Error("Select a category.");
+
+    const photo = formData.get("photo");
+    const replacementPhoto = photo instanceof File && photo.size ? await compressStockPhoto(photo) : "";
+    const item = {
+      ...selectedItem,
+      stockCode: String(formData.get("stockCode") || "").trim(),
+      description: String(formData.get("description") || "").trim(),
+      searchTerms: String(formData.get("searchTerms") || "").split(/[,\n]/).map((term) => term.trim()).filter(Boolean),
+      categoryId: category.id,
+      categoryName: category.name,
+      imageDataUrl: replacementPhoto || selectedItem.imageDataUrl,
+      pendingSync: true
+    };
+    if (!item.stockCode || !item.description) throw new Error("Stock code and description are required.");
+
+    const nextState = {
+      ...state,
+      categories: categoryChoice === "new" ? [...state.categories, category] : state.categories,
+      items: state.items.map((entry) => entry.id === item.id ? item : entry)
+    };
+    setState(nextState);
+    saveStockStateLocally(nextState);
+    setView("detail");
+    setMessage("Updated locally. Syncing to Supabase...");
+
+    try {
+      if (category.pendingSync) replaceCategory(await syncCategory(category));
+      replaceItem(await syncStockItem(item));
+      setMessage("Changes saved to Supabase.");
+    } catch (error) {
+      setMessage(`Updated locally and queued for Supabase. ${error.message || ""}`);
+    }
+  }
+
+  async function deleteItem() {
+    if (!selectedItem || !window.confirm(`Remove ${selectedItem.description}?`)) return;
+
+    const item = selectedItem;
+    const nextState = {
+      ...state,
+      items: state.items.filter((entry) => entry.id !== item.id),
+      deletedItems: [...state.deletedItems.filter((entry) => entry.id !== item.id), item]
+    };
+    setState(nextState);
+    saveStockStateLocally(nextState);
+    setSelectedId("");
+    setView("list");
+    setMessage("Removed locally. Syncing deletion to Supabase...");
+
+    try {
+      await syncDeleteStockItem(item);
+      const syncedState = { ...nextState, deletedItems: nextState.deletedItems.filter((entry) => entry.id !== item.id) };
+      setState(syncedState);
+      saveStockStateLocally(syncedState);
+      setMessage("Item removed from Supabase.");
+    } catch (error) {
+      setMessage(`Removed locally and queued for Supabase. ${error.message || ""}`);
+    }
+  }
+
   if (view === "add") {
-    return <AddItemView categories={state.categories} onBack={() => setView("list")} onSave={addItem} />;
+    return <ItemFormView categories={state.categories} onBack={() => setView("list")} onSave={addItem} />;
+  }
+
+  if (view === "edit" && selectedItem) {
+    return <ItemFormView categories={state.categories} item={selectedItem} onBack={() => setView("detail")} onSave={updateItem} onDelete={deleteItem} />;
   }
 
   if (view === "detail" && selectedItem) {
@@ -133,12 +222,13 @@ export default function StockCodesPage() {
           <button className={styles.back} type="button" onClick={() => setView("list")}>← Parts</button>
           <article className={styles.detail}>
             {selectedItem.imageDataUrl ? <img src={selectedItem.imageDataUrl} alt={selectedItem.description} /> : <div className={styles.noImage}>No photo</div>}
-            <div>
+            <div className={styles.detailText}>
               <span className={styles.category}>{selectedItem.categoryName}</span>
               <h1>{selectedItem.description}</h1>
               <p className={styles.code}>{selectedItem.stockCode}</p>
               {selectedItem.searchTerms.length ? <p className={styles.terms}>{selectedItem.searchTerms.join(" · ")}</p> : null}
               {selectedItem.pendingSync ? <p className={styles.pending}>Saved locally · waiting to sync</p> : null}
+              <button className={styles.editButton} type="button" onClick={() => setView("edit")}>Edit item</button>
             </div>
           </article>
           {message ? <p className={styles.message}>{message}</p> : null}
@@ -177,11 +267,11 @@ export default function StockCodesPage() {
   );
 }
 
-function AddItemView({ categories, onBack, onSave }) {
-  const [categoryId, setCategoryId] = useState(categories[0]?.id || "");
+function ItemFormView({ categories, item, onBack, onSave, onDelete }) {
+  const [categoryId, setCategoryId] = useState(item?.categoryId || categories[0]?.id || "");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [photoPreview, setPhotoPreview] = useState("");
+  const [photoPreview, setPhotoPreview] = useState(item?.imageDataUrl || "");
   const photoRef = useRef(null);
 
   async function previewPhoto(files) {
@@ -208,7 +298,7 @@ function AddItemView({ categories, onBack, onSave }) {
       <HomeBackButton />
       <main className={styles.formPage}>
         <button className={styles.back} type="button" onClick={onBack}>← Cancel</button>
-        <h1>Add stock item</h1>
+        <h1>{item ? "Edit stock item" : "Add stock item"}</h1>
         <form className={styles.form} onSubmit={submit}>
           <div className={styles.photoField}>
             <span>Photo</span>
@@ -226,16 +316,17 @@ function AddItemView({ categories, onBack, onSave }) {
             </button>
             {photoPreview ? <img className={styles.photoPreview} src={photoPreview} alt="Selected stock item" /> : null}
           </div>
-          <label>Stock code<input name="stockCode" required autoComplete="off" /></label>
-          <label>Description<textarea name="description" required rows="3" /></label>
-          <label>Search words<textarea name="searchTerms" rows="3" placeholder="Alternative names, separated by commas" /></label>
+          <label>Stock code<input name="stockCode" required autoComplete="off" defaultValue={item?.stockCode || ""} /></label>
+          <label>Description<textarea name="description" required rows="3" defaultValue={item?.description || ""} /></label>
+          <label>Search words<textarea name="searchTerms" rows="3" placeholder="Alternative names, separated by commas" defaultValue={(item?.searchTerms || []).join(", ")} /></label>
           <label>Category<select name="categoryId" value={categoryId} onChange={(event) => setCategoryId(event.target.value)} required>
             {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
             <option value="new">+ New category</option>
           </select></label>
           {categoryId === "new" ? <label>New category<input name="newCategory" required /></label> : null}
           {error ? <p className={styles.error}>{error}</p> : null}
-          <button className={styles.primary} type="submit" disabled={saving}>{saving ? "Saving..." : "Save item"}</button>
+          <button className={styles.primary} type="submit" disabled={saving}>{saving ? "Saving..." : item ? "Save changes" : "Save item"}</button>
+          {item ? <button className={styles.deleteButton} type="button" onClick={onDelete}>Remove item</button> : null}
         </form>
       </main>
     </div>
