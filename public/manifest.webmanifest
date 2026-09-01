@@ -1,0 +1,24 @@
+{
+  "name": "Hull Master",
+  "short_name": "Hull Master",
+  "description": "Hull Master marine operations applications",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#071b2e",
+  "theme_color": "#071b2e",
+  "icons": [
+    {
+      "src": "/robertson-caine-logo-transparent.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/robertson-caine-logo-transparent.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
