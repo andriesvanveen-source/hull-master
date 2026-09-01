@@ -7,7 +7,7 @@ export const LAST_ROUTE_KEY = "hull-master:last-session-route";
 export const HOME_INTENT_KEY = "hull-master:intentional-home";
 
 function isRestorableRoute(pathname) {
-  return /^\/(commissioning|boats\/|pdf-signoff|harbour-audit)(\/|$)/.test(pathname || "");
+  return /^\/(commissioning|boats\/|pdf-signoff|harbour-audit|stock-codes)(\/|$)/.test(pathname || "");
 }
 
 export default function SessionRouteRestore() {

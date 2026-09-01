@@ -4,7 +4,8 @@ import styles from "./home.module.css";
 const apps = [
   { href: "/commissioning", title: "Commissioning", icon: "HM" },
   { href: "/pdf-signoff", title: "PDF Sign-off Table", icon: "PDF" },
-  { href: "/harbour-audit", title: "Harbour Audit Buddy", icon: "HA" }
+  { href: "/harbour-audit", title: "Harbour Audit Buddy", icon: "HA" },
+  { href: "/stock-codes", title: "Stock Codes", icon: "SC" }
 ];
 
 export default function HomePage() {
