@@ -32,6 +32,8 @@ export default function StockCodesPage() {
         remote.items.filter((item) => item.pendingSync).forEach(retryItem);
       })
       .catch((error) => setMessage(`Working locally. ${error.message || "Supabase is not ready."}`));
+    // This startup pass intentionally runs once; later changes are already persisted by the mutation helpers.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const selectedItem = state.items.find((item) => item.id === selectedId);

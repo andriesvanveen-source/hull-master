@@ -4,10 +4,10 @@ Local-first Next.js application for adding the updated R&C sign-off table beside
 
 ## Stack
 
-- Next.js 14 app router
+- Next.js 15 app router
 - React 18
 - Supabase metadata logging
-- Python PDF worker using `pypdf` and `reportlab`
+- Server-side PDF processing using `pdf-lib`
 - Vercel-ready project structure
 
 ## Local Setup
@@ -17,23 +17,11 @@ pnpm install
 pnpm dev
 ```
 
-Open `http://localhost:3000`, upload one or more PDF exception reports, enter an optional discipline, then download the updated PDFs.
-
-The local PDF worker uses:
-
-```text
-C:\Users\andvee\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe
-```
-
-Override it in `.env.local` if needed:
-
-```bash
-PDF_PROCESSOR_PYTHON=C:\Path\To\python.exe
-```
+Open `http://localhost:3000/pdf-signoff`, upload one or more PDF exception reports, enter an optional discipline, then download the updated PDFs. The same JavaScript processor runs locally and on Vercel; no Python runtime is required.
 
 ## Supabase
 
-Run `supabase/schema.sql` in your Supabase SQL editor. Then set:
+Run `supabase/pdf-signoff-schema.sql` in your Supabase SQL editor. Then set:
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=...
@@ -45,5 +33,4 @@ The app only logs job metadata: file names, page counts, and table counts. Uploa
 
 ## Vercel Notes
 
-The current local build uses a Python worker launched from the Next.js API route. For Vercel deployment, the same logic can be moved to a Python serverless function or a separate worker endpoint, then called from the Next app. Supabase is already isolated behind environment variables and the schema in `supabase/schema.sql`.
-
+The PDF processor is implemented in `lib/pdfSignoffProcessor.js` and called by the Node.js route at `app/api/process/route.js`, so the repository is self-contained for Vercel deployment.
