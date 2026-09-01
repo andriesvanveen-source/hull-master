@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Camera } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import HomeBackButton from "../components/HomeBackButton";
 import {
   compressStockPhoto,
@@ -178,6 +179,21 @@ function AddItemView({ categories, onBack, onSave }) {
   const [categoryId, setCategoryId] = useState(categories[0]?.id || "");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState("");
+  const photoRef = useRef(null);
+
+  async function previewPhoto(files) {
+    const file = files?.[0];
+    if (!file) return;
+
+    try {
+      setPhotoPreview(await compressStockPhoto(file));
+      setError("");
+    } catch {
+      setPhotoPreview("");
+      setError("The selected photo could not be read. Please try a JPG or PNG image.");
+    }
+  }
 
   async function submit(event) {
     event.preventDefault();
@@ -192,7 +208,22 @@ function AddItemView({ categories, onBack, onSave }) {
         <button className={styles.back} type="button" onClick={onBack}>← Cancel</button>
         <h1>Add stock item</h1>
         <form className={styles.form} onSubmit={submit}>
-          <label>Photo<input name="photo" type="file" accept="image/*" capture="environment" /></label>
+          <div className={styles.photoField}>
+            <span>Photo</span>
+            <input
+              ref={photoRef}
+              name="photo"
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(event) => previewPhoto(event.target.files)}
+            />
+            <button className={styles.photoButton} type="button" onClick={() => photoRef.current?.click()}>
+              <Camera size={16} />
+              {photoPreview ? "Change photo" : "Add photo"}
+            </button>
+            {photoPreview ? <img className={styles.photoPreview} src={photoPreview} alt="Selected stock item" /> : null}
+          </div>
           <label>Stock code<input name="stockCode" required autoComplete="off" /></label>
           <label>Description<textarea name="description" required rows="3" /></label>
           <label>Search words<textarea name="searchTerms" rows="3" placeholder="Alternative names, separated by commas" /></label>
