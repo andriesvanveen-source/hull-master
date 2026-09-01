@@ -1,11 +1,11 @@
 :root {
-  --background: #ffffff;
-  --foreground: #020817;
+  --background: #edf3f8;
+  --foreground: #0b2942;
   --muted: #64748b;
-  --border: #e2e8f0;
-  --primary: #0f172a;
+  --border: #c3d0dc;
+  --primary: #173f63;
   --primary-foreground: #f8fafc;
-  --accent: #f8fafc;
+  --accent: #dfe8f1;
 }
 
 * {
@@ -32,7 +32,7 @@ button {
 .topbar,
 .detail-topbar {
   border-bottom: 1px solid var(--border);
-  background: #fff;
+  background: #f8fafc;
 }
 
 .topbar-inner {
@@ -455,4 +455,3 @@ input::placeholder {
     justify-self: start;
   }
 }
-
