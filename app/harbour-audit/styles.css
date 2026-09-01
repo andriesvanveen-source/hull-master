@@ -46,7 +46,7 @@ button {
   display: flex;
   align-items: center;
   gap: 12px;
-  max-width: 1024px;
+  width: 100%;
   height: 85px;
   margin: 0 auto;
   padding: 0 24px;
@@ -90,9 +90,8 @@ p {
 
 .list-main {
   width: 100%;
-  max-width: 1024px;
-  margin: 0 auto;
-  padding: 32px 24px;
+  margin: 0;
+  padding: 32px clamp(24px, 3vw, 52px);
 }
 
 .list-heading {
@@ -276,10 +275,9 @@ p {
   align-items: center;
   gap: 12px;
   width: 100%;
-  max-width: 1024px;
   height: 77px;
-  margin: 0 auto;
-  padding: 0 24px;
+  margin: 0;
+  padding: 0 clamp(24px, 3vw, 52px);
 }
 
 .detail-title h1 {
@@ -294,9 +292,8 @@ p {
 
 .detail-main {
   width: 100%;
-  max-width: 1024px;
-  margin: 0 auto;
-  padding: 24px;
+  margin: 0;
+  padding: 24px clamp(24px, 3vw, 52px);
 }
 
 .error-banner,
