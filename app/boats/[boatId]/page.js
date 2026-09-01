@@ -17,6 +17,7 @@ import {
   orderBoatAreas
 } from "../../../lib/constants";
 import { exportBoatReport } from "../../../lib/pdfReport";
+import { exportBoatsWorkbook } from "../../../lib/excelExport";
 import {
   createDefect,
   deleteBoat,
@@ -731,14 +732,16 @@ export default function BoatLogPage({ params }) {
     }
   }
 
-  async function exportReport() {
+  async function exportPdfReport(mode) {
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
 
-    const auditedAreas = boatAreas.filter((area) => (boat.completedAreas || []).includes(area));
+    const areas = mode === "full"
+      ? boatAreas
+      : boatAreas.filter((area) => (boat.completedAreas || []).includes(area));
 
-    if (auditedAreas.length === 0) {
+    if (mode !== "full" && areas.length === 0) {
       setSaveError("Select at least one area as audited before exporting the PDF.");
       return;
     }
@@ -748,12 +751,21 @@ export default function BoatLogPage({ params }) {
         showRepeatDefects,
         previousBoat,
         blankRowsByArea,
-        areas: auditedAreas
+        areas
       });
       setReportDate(createdAt);
       setSaveError("");
     } catch (exportError) {
       setSaveError(exportError.message || "Could not export PDF report.");
+    }
+  }
+
+  async function exportDefectsWorkbook() {
+    try {
+      await exportBoatsWorkbook([boat], `Hull Master - ${boat.name} defects.xlsx`);
+      setSaveError("");
+    } catch (exportError) {
+      setSaveError(exportError.message || "Could not export defects to Excel.");
     }
   }
 
@@ -833,7 +845,7 @@ export default function BoatLogPage({ params }) {
 
     try {
       await runSupabaseMutation(() => deleteBoat(boat.id));
-      router.push("/");
+      router.push("/commissioning");
     } catch (deleteError) {
       setSaveError(deleteError.message || "Could not delete boat.");
     }
@@ -936,7 +948,7 @@ export default function BoatLogPage({ params }) {
               <p className="brand-subtitle">Commissioning defect log</p>
             </div>
           </div>
-          <Link className="button secondary" href="/">Back to boats</Link>
+          <Link className="button secondary" href="/commissioning">Back to boats</Link>
         </header>
         <main className="main">
           <div className="panel">
@@ -958,7 +970,7 @@ export default function BoatLogPage({ params }) {
               <p className="brand-subtitle">Commissioning defect log</p>
             </div>
           </div>
-          <Link className="button secondary" href="/">Back to boats</Link>
+          <Link className="button secondary" href="/commissioning">Back to boats</Link>
         </header>
         <main className="main">
           <div className="panel">
@@ -975,11 +987,18 @@ export default function BoatLogPage({ params }) {
     <div className="log-shell">
       <main className="log-page">
         <div className="log-nav">
-          <Link className="back-link" href="/">{"<-"} All boats</Link>
+          <Link className="back-link" href="/commissioning">{"<-"} All boats</Link>
           <div className="log-actions">
             <button className="export-button secondary-action" type="button" onClick={duplicateCurrentBoat}>Duplicate</button>
             <button className="export-button danger-action" type="button" onClick={deleteCurrentBoat}>Delete</button>
-            <button className="export-button" type="button" onClick={exportReport}>Export PDF</button>
+            <details className="export-menu">
+              <summary className="export-button">Export</summary>
+              <div className="export-menu-panel">
+                <button type="button" onClick={() => exportPdfReport("full")}>Full export</button>
+                <button type="button" onClick={() => exportPdfReport("audited")}>Only audited areas</button>
+                <button type="button" onClick={exportDefectsWorkbook}>Excel defects</button>
+              </div>
+            </details>
           </div>
         </div>
 
@@ -1509,4 +1528,3 @@ function DefectSearchInput({
     </div>
   );
 }
-

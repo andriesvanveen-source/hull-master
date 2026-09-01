@@ -11,6 +11,7 @@ import {
   getBoatAreas
 } from "../../lib/constants";
 import { exportBoatReport } from "../../lib/pdfReport";
+import { exportBoatsWorkbook } from "../../lib/excelExport";
 import { createBoat, loadBoat, loadRegisterState, subscribeToStateChanges } from "../../lib/storage";
 
 const REGISTER_CACHE_KEY = "hull-master:register-cache:v2";
@@ -23,6 +24,7 @@ export default function HomePage() {
   const [hasLoaded, setHasLoaded] = useState(false);
   const [isAddingBoat, setIsAddingBoat] = useState(false);
   const [selectedModel, setSelectedModel] = useState("all");
+  const [isExportingBoats, setIsExportingBoats] = useState(false);
   const pendingMutations = useRef(0);
   const queuedRealtimeRefresh = useRef(false);
   const refreshStateRef = useRef(null);
@@ -215,6 +217,26 @@ export default function HomePage() {
     }
   }
 
+  async function handleExportVisibleBoats() {
+    if (visibleBoats.length === 0) {
+      setError("There are no boats in this filter to export.");
+      return;
+    }
+
+    setIsExportingBoats(true);
+
+    try {
+      const boats = await Promise.all(visibleBoats.map((boat) => loadBoat(boat.id)));
+      const filterName = selectedModel === "all" ? "All boats" : `${selectedModel} boats`;
+      await exportBoatsWorkbook(boats, `Hull Master - ${filterName}.xlsx`);
+      setError("");
+    } catch (exportError) {
+      setError(exportError.message || "Could not export the Excel workbook.");
+    } finally {
+      setIsExportingBoats(false);
+    }
+  }
+
   return (
     <div className="register-shell">
       <HomeBackButton />
@@ -255,6 +277,14 @@ export default function HomePage() {
               <option key={model} value={model}>{model}</option>
             ))}
           </select>
+          <button
+            className="register-export-button"
+            type="button"
+            onClick={handleExportVisibleBoats}
+            disabled={isExportingBoats || visibleBoats.length === 0}
+          >
+            {isExportingBoats ? "Exporting..." : "Export selected"}
+          </button>
         </div>
 
         {error ? <p className="muted form-error">{error}</p> : null}
@@ -342,4 +372,3 @@ export default function HomePage() {
     </div>
   );
 }
-
