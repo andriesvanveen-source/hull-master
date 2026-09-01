@@ -14,12 +14,14 @@ create table if not exists public.stock_items (
   category_id uuid not null references public.stock_categories(id),
   image_path text,
   image_url text,
+  order_count integer not null default 0 check (order_count >= 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
 create index if not exists stock_items_category_id_idx on public.stock_items(category_id);
-create index if not exists stock_items_stock_code_idx on public.stock_items(stock_code);
+create unique index if not exists stock_items_stock_code_normalized_uidx
+  on public.stock_items ((regexp_replace(upper(stock_code), '[^A-Z0-9]', '', 'g')));
 
 insert into public.stock_categories (id, name) values
   ('10000000-0000-4000-8000-000000000001', 'Electrical'),
