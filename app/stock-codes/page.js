@@ -7,6 +7,7 @@ import {
   compressStockPhoto,
   loadCachedStockState,
   loadStockState,
+  normalizeStockCode,
   saveStockStateLocally,
   syncCategory,
   syncDeleteStockItem,
@@ -89,6 +90,13 @@ export default function StockCodesPage() {
 
   async function addItem(form) {
     const formData = new FormData(form);
+    const stockCode = String(formData.get("stockCode") || "").trim();
+    const existingItem = state.items.find((entry) => normalizeStockCode(entry.stockCode) === normalizeStockCode(stockCode));
+    if (existingItem) {
+      const error = new Error(`Stock code ${existingItem.stockCode} has already been used.`);
+      error.duplicateItemId = existingItem.id;
+      throw error;
+    }
     const categoryChoice = String(formData.get("categoryId") || "");
     const newCategoryName = String(formData.get("newCategory") || "").trim();
     let category = state.categories.find((entry) => entry.id === categoryChoice);
@@ -103,7 +111,7 @@ export default function StockCodesPage() {
     const imageDataUrl = photo instanceof File && photo.size ? await compressStockPhoto(photo) : "";
     const item = {
       id: crypto.randomUUID(),
-      stockCode: String(formData.get("stockCode") || "").trim(),
+      stockCode,
       description: String(formData.get("description") || "").trim(),
       searchTerms: String(formData.get("searchTerms") || "").split(/[,\n]/).map((term) => term.trim()).filter(Boolean),
       categoryId: category.id,
@@ -137,6 +145,13 @@ export default function StockCodesPage() {
 
   async function updateItem(form) {
     const formData = new FormData(form);
+    const stockCode = String(formData.get("stockCode") || "").trim();
+    const existingItem = state.items.find((entry) => entry.id !== selectedItem?.id && normalizeStockCode(entry.stockCode) === normalizeStockCode(stockCode));
+    if (existingItem) {
+      const error = new Error(`Stock code ${existingItem.stockCode} has already been used.`);
+      error.duplicateItemId = existingItem.id;
+      throw error;
+    }
     const categoryChoice = String(formData.get("categoryId") || "");
     const newCategoryName = String(formData.get("newCategory") || "").trim();
     let category = state.categories.find((entry) => entry.id === categoryChoice);
@@ -151,7 +166,7 @@ export default function StockCodesPage() {
     const replacementPhoto = photo instanceof File && photo.size ? await compressStockPhoto(photo) : "";
     const item = {
       ...selectedItem,
-      stockCode: String(formData.get("stockCode") || "").trim(),
+      stockCode,
       description: String(formData.get("description") || "").trim(),
       searchTerms: String(formData.get("searchTerms") || "").split(/[,\n]/).map((term) => term.trim()).filter(Boolean),
       categoryId: category.id,
@@ -207,11 +222,11 @@ export default function StockCodesPage() {
   }
 
   if (view === "add") {
-    return <ItemFormView categories={state.categories} onBack={() => setView("list")} onSave={addItem} />;
+    return <ItemFormView categories={state.categories} onBack={() => setView("list")} onSave={addItem} onOpenExisting={(id) => { setSelectedId(id); setView("detail"); }} />;
   }
 
   if (view === "edit" && selectedItem) {
-    return <ItemFormView categories={state.categories} item={selectedItem} onBack={() => setView("detail")} onSave={updateItem} onDelete={deleteItem} />;
+    return <ItemFormView categories={state.categories} item={selectedItem} onBack={() => setView("detail")} onSave={updateItem} onDelete={deleteItem} onOpenExisting={(id) => { setSelectedId(id); setView("detail"); }} />;
   }
 
   if (view === "detail" && selectedItem) {
@@ -267,10 +282,11 @@ export default function StockCodesPage() {
   );
 }
 
-function ItemFormView({ categories, item, onBack, onSave, onDelete }) {
+function ItemFormView({ categories, item, onBack, onSave, onDelete, onOpenExisting }) {
   const [categoryId, setCategoryId] = useState(item?.categoryId || categories[0]?.id || "");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [duplicateItemId, setDuplicateItemId] = useState("");
   const [photoPreview, setPhotoPreview] = useState(item?.imageDataUrl || "");
   const photoRef = useRef(null);
 
@@ -289,8 +305,13 @@ function ItemFormView({ categories, item, onBack, onSave, onDelete }) {
 
   async function submit(event) {
     event.preventDefault();
+    setDuplicateItemId("");
     setSaving(true);
-    try { await onSave(event.currentTarget); } catch (saveError) { setError(saveError.message); setSaving(false); }
+    try { await onSave(event.currentTarget); } catch (saveError) {
+      setError(saveError.message);
+      setDuplicateItemId(saveError.duplicateItemId || "");
+      setSaving(false);
+    }
   }
 
   return (
@@ -325,6 +346,7 @@ function ItemFormView({ categories, item, onBack, onSave, onDelete }) {
           </select></label>
           {categoryId === "new" ? <label>New category<input name="newCategory" required /></label> : null}
           {error ? <p className={styles.error}>{error}</p> : null}
+          {duplicateItemId ? <button className={styles.editButton} type="button" onClick={() => onOpenExisting?.(duplicateItemId)}>Go to existing item</button> : null}
           <button className={styles.primary} type="submit" disabled={saving}>{saving ? "Saving..." : item ? "Save changes" : "Save item"}</button>
           {item ? <button className={styles.deleteButton} type="button" onClick={onDelete}>Remove item</button> : null}
         </form>

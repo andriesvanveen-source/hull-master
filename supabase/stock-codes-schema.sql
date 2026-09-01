@@ -19,13 +19,14 @@ create table if not exists public.stock_items (
 );
 
 create index if not exists stock_items_category_id_idx on public.stock_items(category_id);
-create index if not exists stock_items_stock_code_idx on public.stock_items(stock_code);
+create unique index if not exists stock_items_stock_code_normalized_uidx
+  on public.stock_items ((regexp_replace(upper(stock_code), '[^A-Z0-9]', '', 'g')));
 
 insert into public.stock_categories (id, name) values
   ('10000000-0000-4000-8000-000000000001', 'Electrical'),
   ('10000000-0000-4000-8000-000000000002', 'Plumbing'),
   ('10000000-0000-4000-8000-000000000003', 'Mechanical'),
-  ('10000000-0000-4000-8000-000000000004', E'Skipper''s pack'),
+  ('10000000-0000-4000-8000-000000000004', E'Loose items/Skipper''s pack'),
   ('10000000-0000-4000-8000-000000000005', 'Other')
 on conflict (name) do nothing;
 
