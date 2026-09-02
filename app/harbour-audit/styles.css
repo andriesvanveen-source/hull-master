@@ -361,9 +361,11 @@ p {
   line-height: 24px;
 }
 
-textarea {
+.add-card textarea {
   display: block;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   min-height: 78px;
   margin-bottom: 12px;
   border: 1px solid var(--border);
@@ -373,12 +375,14 @@ textarea {
   color: var(--foreground);
   font-size: 14px;
   line-height: 20px;
+  overflow: auto;
   resize: vertical;
 }
 
-textarea::placeholder,
+.add-card textarea::placeholder,
 input::placeholder {
   color: var(--muted);
+  opacity: 1;
 }
 
 .photo-strip,
@@ -522,5 +526,10 @@ input::placeholder {
 
   .modal-backdrop {
     padding: 14px;
+  }
+
+  .add-card textarea {
+    font-size: 16px;
+    resize: none;
   }
 }

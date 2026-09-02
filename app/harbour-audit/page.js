@@ -505,6 +505,7 @@ export default function HomePage() {
           <section className="card add-card">
             <h2>Add defect</h2>
             <textarea
+              rows={3}
               placeholder="Describe the defect..."
               value={description}
               onChange={(event) => setDescription(event.target.value)}
