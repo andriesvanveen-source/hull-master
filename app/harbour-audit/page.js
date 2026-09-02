@@ -6,6 +6,58 @@ import jsPDF from "jspdf";
 import HomeBackButton from "../components/HomeBackButton";
 
 const STORAGE_KEY = "harbour-audit-buddy-audits";
+const DATABASE_NAME = "harbour-audit-buddy";
+const DATABASE_VERSION = 1;
+const DATABASE_STORE = "audit-state";
+let auditSaveQueue = Promise.resolve();
+
+function openAuditDatabase() {
+  return new Promise((resolve, reject) => {
+    const request = window.indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
+    request.onupgradeneeded = () => {
+      const database = request.result;
+      if (!database.objectStoreNames.contains(DATABASE_STORE)) {
+        database.createObjectStore(DATABASE_STORE);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function loadAuditsLocally() {
+  const database = await openAuditDatabase();
+  try {
+    return await new Promise((resolve, reject) => {
+      const transaction = database.transaction(DATABASE_STORE, "readonly");
+      const request = transaction.objectStore(DATABASE_STORE).get(STORAGE_KEY);
+      request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : null);
+      request.onerror = () => reject(request.error);
+    });
+  } finally {
+    database.close();
+  }
+}
+
+async function saveAuditsLocally(audits) {
+  const database = await openAuditDatabase();
+  try {
+    await new Promise((resolve, reject) => {
+      const transaction = database.transaction(DATABASE_STORE, "readwrite");
+      transaction.objectStore(DATABASE_STORE).put(audits, STORAGE_KEY);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+    });
+  } finally {
+    database.close();
+  }
+}
+
+function queueAuditSave(audits) {
+  auditSaveQueue = auditSaveQueue.catch(() => undefined).then(() => saveAuditsLocally(audits));
+  return auditSaveQueue;
+}
 
 function todayText() {
   return new Intl.DateTimeFormat("en-GB", {
@@ -272,16 +324,50 @@ export default function HomePage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setAudits(Array.isArray(parsed) ? parsed : []);
+    let isMounted = true;
+
+    async function loadSavedAudits() {
+      try {
+        let savedAudits = null;
+        try {
+          savedAudits = await loadAuditsLocally();
+        } catch {
+          // Older/private browsers may deny IndexedDB; still recover any legacy audit list.
+        }
+
+        if (!savedAudits) {
+          const legacyValue = window.localStorage.getItem(STORAGE_KEY);
+          const legacyAudits = legacyValue ? JSON.parse(legacyValue) : [];
+          savedAudits = Array.isArray(legacyAudits) ? legacyAudits : [];
+
+          if (savedAudits.length) {
+            try {
+              await saveAuditsLocally(savedAudits);
+              window.localStorage.removeItem(STORAGE_KEY);
+            } catch {
+              // Keep the legacy copy intact if this browser cannot complete the migration.
+            }
+          }
+        }
+
+        if (isMounted) {
+          setAudits(savedAudits);
+        }
+      } catch {
+        if (isMounted) {
+          setError("Saved audits could not be opened on this browser.");
+        }
+      } finally {
+        if (isMounted) {
+          setLoaded(true);
+        }
       }
-    } catch {
-      window.localStorage.removeItem(STORAGE_KEY);
     }
-    setLoaded(true);
+
+    loadSavedAudits();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -289,12 +375,20 @@ export default function HomePage() {
       return;
     }
 
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(audits));
-      setError("");
-    } catch {
-      setError("This browser could not save all photos locally. You can still export the current audit PDF.");
-    }
+    let isCurrent = true;
+    queueAuditSave(audits)
+      .then(() => {
+        if (isCurrent) setError("");
+      })
+      .catch(() => {
+        if (isCurrent) {
+          setError("This browser could not save the audit locally. Keep this page open and export the PDF before leaving.");
+        }
+      });
+
+    return () => {
+      isCurrent = false;
+    };
   }, [audits, loaded]);
 
   const activeAudit = useMemo(() => audits.find((audit) => audit.id === activeId), [audits, activeId]);
