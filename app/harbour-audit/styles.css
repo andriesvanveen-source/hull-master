@@ -248,10 +248,10 @@ p {
 }
 
 .audit-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 14px;
   min-height: 74px;
   padding: 16px;
 }
@@ -267,9 +267,25 @@ p {
 }
 
 .audit-main strong {
+  color: #1d5f93;
   font-size: 16px;
   font-weight: 600;
   line-height: 24px;
+}
+
+.audit-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.delete-audit-button {
+  color: #a33a3a;
+}
+
+.delete-audit-button:hover {
+  background: #fff1f2;
+  color: #842929;
 }
 
 .detail-inner {
@@ -462,10 +478,18 @@ input::placeholder {
     padding-right: 14px;
   }
 
-  .list-heading,
-  .audit-row {
+  .list-heading {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .audit-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 14px;
+  }
+
+  .audit-actions {
+    align-self: center;
   }
 
   .detail-inner {

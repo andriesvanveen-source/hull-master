@@ -245,7 +245,10 @@ async function exportAuditPdf(audit) {
   const fileName = `${audit.title} Audit.pdf`.replace(/[\\/:*?"<>|]+/g, "-");
   const pdfBlob = doc.output("blob");
   const pdfFile = new File([pdfBlob], fileName, { type: "application/pdf" });
-  const canShareFile = typeof navigator.share === "function"
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const canShareFile = isIOS
+    && typeof navigator.share === "function"
     && typeof navigator.canShare === "function"
     && navigator.canShare({ files: [pdfFile] });
 
@@ -481,13 +484,15 @@ export default function HomePage() {
                   <strong>{audit.title}</strong>
                   <span>{audit.defects.length} defects · {audit.createdAt}</span>
                 </button>
-                <button className="outline-small" type="button" onClick={() => handleExport(audit)}>
-                  <Download size={14} />
-                  PDF
-                </button>
-                <button className="icon-button" type="button" onClick={() => deleteAudit(audit.id)} aria-label="Delete audit">
-                  <Trash2 size={16} />
-                </button>
+                <div className="audit-actions">
+                  <button className="outline-small" type="button" onClick={() => handleExport(audit)}>
+                    <Download size={14} />
+                    PDF
+                  </button>
+                  <button className="icon-button delete-audit-button" type="button" onClick={() => deleteAudit(audit.id)} aria-label="Delete audit">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </article>
             ))}
           </div>
