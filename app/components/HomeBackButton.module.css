@@ -16,6 +16,7 @@
   font: 600 12px/1 Arial, sans-serif;
   text-decoration: none;
   backdrop-filter: blur(8px);
+  cursor: pointer;
 }
 
 .back:hover { border-color: #2f6fa5; color: #2f6fa5; }

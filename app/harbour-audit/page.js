@@ -63,15 +63,6 @@ async function readFiles(files) {
   );
 }
 
-function imageSize(dataUrl) {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight });
-    image.onerror = reject;
-    image.src = dataUrl;
-  });
-}
-
 function imageFormat(dataUrl) {
   return "JPEG";
 }
@@ -142,13 +133,13 @@ function ensurePdfSpace(doc, y, neededHeight, margin) {
   return margin;
 }
 
-async function addPhotoDefect(doc, defect, defectNumber, y, layout, logoDataUrl) {
+function addPhotoDefect(doc, defect, defectNumber, y, layout, logoDataUrl) {
   const { margin, pageW, photoW, tableH } = layout;
   const rightX = margin + photoW + 28;
   const rightW = pageW - rightX - margin;
 
   for (const [photoIndex, photo] of defect.photos.entries()) {
-    const size = await imageSize(photo.dataUrl);
+    const size = doc.getImageProperties(photo.dataUrl);
     const photoH = Math.min(235, photoW * (size.height / size.width));
     const headingH = photoIndex === 0 ? 52 : 0;
     const rowH = Math.max(photoH, headingH + tableH);
@@ -226,7 +217,7 @@ async function exportAuditPdf(audit) {
   let y = 142;
   let defectNumber = 1;
   for (const defect of photoDefects) {
-    y = await addPhotoDefect(doc, defect, defectNumber, y, layout, logoDataUrl);
+    y = addPhotoDefect(doc, defect, defectNumber, y, layout, logoDataUrl);
     defectNumber += 1;
   }
 
