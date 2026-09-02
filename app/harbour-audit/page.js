@@ -328,28 +328,38 @@ export default function HomePage() {
 
     async function loadSavedAudits() {
       try {
-        let savedAudits = null;
+        let indexedAudits = [];
         try {
-          savedAudits = await loadAuditsLocally();
+          const storedAudits = await loadAuditsLocally();
+          indexedAudits = Array.isArray(storedAudits) ? storedAudits : [];
         } catch {
           // Older/private browsers may deny IndexedDB; still recover any legacy audit list.
         }
 
-        if (!savedAudits) {
+        let legacyAudits = [];
+        try {
           const legacyValue = window.localStorage.getItem(STORAGE_KEY);
-          const legacyAudits = legacyValue ? JSON.parse(legacyValue) : [];
-          savedAudits = Array.isArray(legacyAudits) ? legacyAudits : [];
+          const parsedLegacyAudits = legacyValue ? JSON.parse(legacyValue) : [];
+          legacyAudits = Array.isArray(parsedLegacyAudits) ? parsedLegacyAudits : [];
+        } catch {
+          // A damaged legacy backup must not prevent valid IndexedDB audits from loading.
+        }
 
-          if (savedAudits.length) {
-            try {
-              await saveAuditsLocally(savedAudits);
-              window.localStorage.removeItem(STORAGE_KEY);
-            } catch {
-              // Keep the legacy copy intact if this browser cannot complete the migration.
-            }
+        const indexedIds = new Set(indexedAudits.map((audit) => audit.id));
+        const savedAudits = [
+          ...indexedAudits,
+          ...legacyAudits.filter((audit) => !indexedIds.has(audit.id))
+        ];
+
+        if (legacyAudits.some((audit) => !indexedIds.has(audit.id))) {
+          try {
+            await saveAuditsLocally(savedAudits);
+          } catch {
+            // Keep using the recovered in-memory data if migration is unavailable.
           }
         }
 
+        // Intentionally retain localStorage as a read-only migration backup.
         if (isMounted) {
           setAudits(savedAudits);
         }
