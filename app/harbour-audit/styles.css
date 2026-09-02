@@ -366,13 +366,20 @@ p {
   line-height: 24px;
 }
 
+.description-field {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  margin-bottom: 12px;
+}
+
 .add-card textarea {
   display: block;
   width: 100%;
   max-width: 100%;
   min-width: 0;
   min-height: 78px;
-  margin-bottom: 12px;
+  margin: 0;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: transparent;
@@ -384,7 +391,19 @@ p {
   resize: vertical;
 }
 
-.add-card textarea::placeholder,
+.description-placeholder {
+  position: absolute;
+  top: 9px;
+  left: 13px;
+  right: 13px;
+  overflow: visible;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 20px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
 input::placeholder {
   color: var(--muted);
   opacity: 1;
@@ -536,5 +555,9 @@ input::placeholder {
   .add-card textarea {
     font-size: 16px;
     resize: none;
+  }
+
+  .description-placeholder {
+    font-size: 16px;
   }
 }

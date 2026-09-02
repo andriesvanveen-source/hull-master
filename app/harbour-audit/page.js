@@ -508,12 +508,15 @@ export default function HomePage() {
           {error && <p className="error-banner">{error}</p>}
           <section className="card add-card">
             <h2>Add defect</h2>
-            <textarea
-              rows={3}
-              placeholder="Describe the defect..."
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-            />
+            <div className="description-field">
+              <textarea
+                rows={3}
+                aria-label="Describe the defect"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+              />
+              {!description && <span className="description-placeholder">Describe the defect...</span>}
+            </div>
             <input
               ref={fileRef}
               type="file"
