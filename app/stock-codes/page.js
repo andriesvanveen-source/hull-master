@@ -233,7 +233,6 @@ export default function StockCodesPage() {
   if (view === "detail" && selectedItem) {
     return (
       <div className={styles.shell}>
-        <HomeBackButton />
         <main className={styles.page}>
           <button className={styles.back} type="button" onClick={() => setView("list")}>← Parts</button>
           <article className={styles.detail}>
@@ -317,7 +316,6 @@ function ItemFormView({ categories, item, onBack, onSave, onDelete, onOpenExisti
 
   return (
     <div className={styles.shell}>
-      <HomeBackButton />
       <main className={styles.formPage}>
         <button className={styles.back} type="button" onClick={onBack}>← Cancel</button>
         <h1>{item ? "Edit stock item" : "Add stock item"}</h1>

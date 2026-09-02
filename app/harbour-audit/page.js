@@ -367,7 +367,6 @@ export default function HomePage() {
   if (activeAudit) {
     return (
       <>
-        <HomeBackButton />
         <header className="detail-topbar">
           <div className="detail-inner">
             <button className="icon-button" type="button" onClick={() => setActiveId(null)} aria-label="Back">
