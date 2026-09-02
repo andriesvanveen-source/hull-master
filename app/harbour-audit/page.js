@@ -448,7 +448,11 @@ export default function HomePage() {
   }
 
   function addDefect() {
-    if (!activeAudit || (!description.trim() && !photos.length)) {
+    if (!activeAudit) {
+      return;
+    }
+    if (!description.trim()) {
+      setError("Enter a defect description before adding the defect.");
       return;
     }
     const defect = {
@@ -535,7 +539,12 @@ export default function HomePage() {
                 ))}
               </div>
             )}
-            <button className="primary-button" type="button" onClick={addDefect}>
+            <button
+              className="primary-button"
+              type="button"
+              onClick={addDefect}
+              disabled={!description.trim()}
+            >
               <Plus size={16} />
               Add defect
             </button>

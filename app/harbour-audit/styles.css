@@ -209,6 +209,11 @@ p {
   background: #1e293b;
 }
 
+.primary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .outline-small:hover,
 .outline-button:hover,
 .ghost-button:hover,
