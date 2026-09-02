@@ -1,6 +1,6 @@
 "use client";
 
-import { Camera } from "lucide-react";
+import { Camera, FileImage } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import HomeBackButton from "../components/HomeBackButton";
 import {
@@ -303,6 +303,14 @@ function ItemFormView({ categories, item, onBack, onSave, onDelete, onOpenExisti
     }
   }
 
+  function openPhotoPicker(useCamera) {
+    if (!photoRef.current) return;
+    photoRef.current.value = "";
+    if (useCamera) photoRef.current.setAttribute("capture", "environment");
+    else photoRef.current.removeAttribute("capture");
+    photoRef.current.click();
+  }
+
   async function submit(event) {
     event.preventDefault();
     setDuplicateItemId("");
@@ -330,10 +338,16 @@ function ItemFormView({ categories, item, onBack, onSave, onDelete, onOpenExisti
               hidden
               onChange={(event) => previewPhoto(event.target.files)}
             />
-            <button className={styles.photoButton} type="button" onClick={() => photoRef.current?.click()}>
-              <Camera size={16} />
-              {photoPreview ? "Change photo" : "Add photo"}
-            </button>
+            <div className={styles.photoActions}>
+              <button className={styles.photoButton} type="button" onClick={() => openPhotoPicker(true)}>
+                <Camera size={16} />
+                Take photo
+              </button>
+              <button className={styles.photoButton} type="button" onClick={() => openPhotoPicker(false)}>
+                <FileImage size={16} />
+                Choose gallery
+              </button>
+            </div>
             {photoPreview ? <img className={styles.photoPreview} src={photoPreview} alt="Selected stock item" /> : null}
           </div>
           <label>Stock code<input name="stockCode" required autoComplete="off" defaultValue={item?.stockCode || ""} /></label>

@@ -33,6 +33,7 @@
 .form { display: grid; gap: 16px; padding: 22px; border: 1px solid #c3d0dc; border-radius: 10px; background: #fff; }
 .form label { display: grid; gap: 7px; color: #334155; font-size: 13px; font-weight: 700; }
 .photoField { display: grid; justify-items: start; gap: 9px; color: #334155; font-size: 13px; font-weight: 700; }
+.photoActions { display: flex; flex-wrap: wrap; gap: 8px; }
 .photoButton { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 38px; border: 1px solid #bdcad6; border-radius: 7px; padding: 0 14px; background: #fff; color: #173f63; font-weight: 700; }
 .photoButton:hover { background: #e8eef5; }
 .photoPreview { width: 96px; height: 96px; border-radius: 8px; object-fit: cover; }

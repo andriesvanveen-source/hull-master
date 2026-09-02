@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Camera, Download, FileText, Plus, Ship, Trash2, X } from "lucide-react";
+import { ArrowLeft, Camera, Download, FileImage, FileText, Plus, Ship, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import jsPDF from "jspdf";
 import HomeBackButton from "../components/HomeBackButton";
@@ -330,6 +330,19 @@ export default function HomePage() {
     }
   }
 
+  function openPhotoPicker(useCamera) {
+    if (!fileRef.current) return;
+    fileRef.current.value = "";
+    if (useCamera) {
+      fileRef.current.setAttribute("capture", "environment");
+      fileRef.current.removeAttribute("multiple");
+    } else {
+      fileRef.current.removeAttribute("capture");
+      fileRef.current.setAttribute("multiple", "");
+    }
+    fileRef.current.click();
+  }
+
   function addDefect() {
     if (!activeAudit || (!description.trim() && !photos.length)) {
       return;
@@ -400,10 +413,16 @@ export default function HomePage() {
               hidden
               onChange={(event) => addPhotoFiles(event.target.files)}
             />
-            <button className="outline-button" type="button" onClick={() => fileRef.current?.click()}>
-              <Camera size={16} />
-              Add photo
-            </button>
+            <div className="photo-actions">
+              <button className="outline-button" type="button" onClick={() => openPhotoPicker(true)}>
+                <Camera size={16} />
+                Take photo
+              </button>
+              <button className="outline-button" type="button" onClick={() => openPhotoPicker(false)}>
+                <FileImage size={16} />
+                Choose gallery
+              </button>
+            </div>
             {photos.length > 0 && (
               <div className="photo-strip">
                 {photos.map((photo) => (

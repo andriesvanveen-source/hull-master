@@ -180,6 +180,12 @@ p {
   margin-top: 12px;
 }
 
+.photo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .ghost-button,
 .icon-button {
   background: transparent;
