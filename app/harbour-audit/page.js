@@ -141,7 +141,7 @@ function imageFormat(dataUrl) {
 }
 
 function drawSignoffTable(doc, x, y, width, height, logoDataUrl) {
-  const titleH = 25;
+  const titleH = 34;
   const headerH = 18;
   const colW = width / 3;
   const titleY = y + titleH;
@@ -156,41 +156,41 @@ function drawSignoffTable(doc, x, y, width, height, logoDataUrl) {
   doc.line(x + colW, titleY, x + colW, y + height);
   doc.line(x + colW * 2, titleY, x + colW * 2, y + height);
 
-  const logoSize = 20;
+  const logoSize = 28;
   const titleText = "R&C Sign Off";
   const disciplineText = "Discipline:";
   doc.setFont("times", "bold");
-  doc.setFontSize(12);
+  doc.setFontSize(10);
   const titleWidth = doc.getTextWidth(titleText);
-  doc.setFontSize(6.8);
+  doc.setFontSize(6.2);
   const disciplineWidth = doc.getTextWidth(disciplineText);
   const lineWidth = Math.min(72, Math.max(38, width * 0.22));
-  const groupWidth = logoSize + 8 + titleWidth + 8 + disciplineWidth + 8 + lineWidth;
+  const groupWidth = logoSize + 7 + titleWidth + 8 + disciplineWidth + 6 + lineWidth;
   const groupX = x + Math.max(5, (width - groupWidth) / 2);
-  const baseline = y + 17;
+  const baseline = y + 21.5;
 
   if (logoDataUrl) {
-    doc.addImage(logoDataUrl, "PNG", groupX, y + 2.5, logoSize, logoSize);
+    doc.addImage(logoDataUrl, "PNG", groupX, y + (titleH - logoSize) / 2, logoSize, logoSize);
   }
 
   doc.setTextColor(0, 0, 0);
   doc.setFont("times", "bold");
-  doc.setFontSize(12);
-  doc.text(titleText, groupX + logoSize + 8, baseline);
-  doc.setFontSize(6.8);
-  const disciplineX = groupX + logoSize + 8 + titleWidth + 8;
+  doc.setFontSize(10);
+  doc.text(titleText, groupX + logoSize + 7, baseline);
+  doc.setFontSize(6.2);
+  const disciplineX = groupX + logoSize + 7 + titleWidth + 8;
   doc.text(disciplineText, disciplineX, baseline);
   const lineX = disciplineX + disciplineWidth + 8;
   doc.line(lineX, baseline, Math.min(lineX + lineWidth, x + width - 4), baseline);
 
   doc.setFont("times", "bold");
-  doc.setFontSize(7.4);
+  doc.setFontSize(6.6);
   ["Team Member", "Team Leader", "CE / QC"].forEach((label, index) => {
     doc.text(label, x + colW * index + colW / 2, titleY + 11.5, { align: "center" });
   });
 
   doc.setFont("times", "normal");
-  doc.setFontSize(6.6);
+  doc.setFontSize(6.2);
   [0, 1, 2].forEach((index) => {
     doc.text("Date:", x + colW * index + 4, y + height - 6);
   });
