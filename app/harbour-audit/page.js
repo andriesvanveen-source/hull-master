@@ -10,6 +10,27 @@ const DATABASE_NAME = "harbour-audit-buddy";
 const DATABASE_VERSION = 1;
 const DATABASE_STORE = "audit-state";
 let auditSaveQueue = Promise.resolve();
+let pdfLogoPromise;
+
+function loadPdfLogo() {
+  if (!pdfLogoPromise) {
+    pdfLogoPromise = fetch("/robertson-caine-logo-transparent.png")
+      .then((response) => {
+        if (!response.ok) throw new Error("The PDF logo could not be loaded.");
+        return response.blob();
+      })
+      .then(
+        (blob) =>
+          new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(blob);
+          })
+      );
+  }
+  return pdfLogoPromise;
+}
 
 function openAuditDatabase() {
   return new Promise((resolve, reject) => {
@@ -135,7 +156,7 @@ function drawSignoffTable(doc, x, y, width, height, logoDataUrl) {
   doc.line(x + colW, titleY, x + colW, y + height);
   doc.line(x + colW * 2, titleY, x + colW * 2, y + height);
 
-  const logoSize = 12;
+  const logoSize = 20;
   const titleText = "R&C Sign Off";
   const disciplineText = "Discipline:";
   doc.setFont("times", "bold");
@@ -149,7 +170,7 @@ function drawSignoffTable(doc, x, y, width, height, logoDataUrl) {
   const baseline = y + 17;
 
   if (logoDataUrl) {
-    doc.addImage(logoDataUrl, "PNG", groupX, y + 6.5, logoSize, logoSize);
+    doc.addImage(logoDataUrl, "PNG", groupX, y + 2.5, logoSize, logoSize);
   }
 
   doc.setTextColor(0, 0, 0);
@@ -249,7 +270,7 @@ async function exportAuditPdf(audit) {
     photoW: 150,
     tableH: 105
   };
-  const logoDataUrl = null;
+  const logoDataUrl = await loadPdfLogo();
 
   const photoDefects = audit.defects.filter((defect) => defect.photos.length > 0);
   const noPhotoDefects = audit.defects.filter((defect) => defect.photos.length === 0);
