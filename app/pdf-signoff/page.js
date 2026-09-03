@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import HomeBackButton from "../components/HomeBackButton";
-import { createPdfObjectUrl } from "../../lib/pdfDownloads";
+import { createPdfBlob, createPdfObjectUrl } from "../../lib/pdfDownloads";
+import { clearPdfArchive, loadPdfArchive, savePdfArchive } from "../../lib/pdfSignoffArchive";
 
 function revokeUrls(items) {
   items.forEach((item) => {
@@ -17,28 +18,56 @@ export default function HomePage() {
   const inputRef = useRef(null);
   const archiveRef = useRef([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [archiveLoaded, setArchiveLoaded] = useState(false);
   const [error, setError] = useState("");
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archive, setArchive] = useState([]);
 
   const archiveCount = archive.length;
   const buttonLabel = useMemo(() => {
+    if (!archiveLoaded) {
+      return "Loading archive...";
+    }
     if (isProcessing) {
       return "Processing...";
     }
 
     return "Choose PDFs";
-  }, [isProcessing]);
+  }, [archiveLoaded, isProcessing]);
 
   useEffect(() => {
     archiveRef.current = archive;
   }, [archive]);
 
   useEffect(() => {
-    return () => revokeUrls(archiveRef.current);
+    let isMounted = true;
+
+    loadPdfArchive()
+      .then((savedItems) => {
+        if (!isMounted) return;
+        const restoredItems = savedItems.map((item) => ({
+          ...item,
+          url: createPdfObjectUrl(item.blob)
+        }));
+        archiveRef.current = restoredItems;
+        setArchive(restoredItems);
+      })
+      .catch(() => {
+        if (isMounted) setError("The saved PDF archive could not be opened on this browser.");
+      })
+      .finally(() => {
+        if (isMounted) setArchiveLoaded(true);
+      });
+
+    return () => {
+      isMounted = false;
+      revokeUrls(archiveRef.current);
+    };
   }, []);
 
   async function processFiles(fileList) {
+    if (!archiveLoaded || isProcessing) return;
+
     const pdfs = Array.from(fileList || []).filter((file) => file.name.toLowerCase().endsWith(".pdf"));
 
     if (!pdfs.length) {
@@ -62,14 +91,31 @@ export default function HomePage() {
         throw new Error(payload.error || "The PDFs could not be processed.");
       }
 
-      const nextItems = (payload.results || []).map((result) => ({
+      const nextRecords = (payload.results || []).map(({ base64, ...result }) => ({
         ...result,
         id: `${result.fileName}-${Date.now()}-${Math.random()}`,
-        url: createPdfObjectUrl(result.base64)
+        blob: createPdfBlob(base64)
       }));
+      const savedRecords = archiveRef.current.map(({ url, ...item }) => item);
+      const combinedRecords = [...nextRecords, ...savedRecords];
+      let saveWarning = "";
 
-      setArchive((current) => [...nextItems, ...current]);
+      try {
+        await savePdfArchive(combinedRecords);
+      } catch {
+        saveWarning = "The PDFs were processed, but this browser could not save them permanently.";
+      }
+
+      const nextItems = nextRecords.map((item) => ({
+        ...item,
+        url: createPdfObjectUrl(item.blob)
+      }));
+      const combinedItems = [...nextItems, ...archiveRef.current];
+
+      archiveRef.current = combinedItems;
+      setArchive(combinedItems);
       setArchiveOpen(true);
+      if (saveWarning) setError(saveWarning);
     } catch (processError) {
       setError(processError.message || "The PDFs could not be processed.");
     } finally {
@@ -80,10 +126,17 @@ export default function HomePage() {
     }
   }
 
-  function clearArchive() {
-    revokeUrls(archive);
-    setArchive([]);
-    setArchiveOpen(false);
+  async function clearArchive() {
+    try {
+      await clearPdfArchive();
+      revokeUrls(archiveRef.current);
+      archiveRef.current = [];
+      setArchive([]);
+      setArchiveOpen(false);
+      setError("");
+    } catch {
+      setError("The saved PDF archive could not be cleared.");
+    }
   }
 
   return (
@@ -113,7 +166,7 @@ export default function HomePage() {
         <button
           className="choose-button"
           type="button"
-          disabled={isProcessing}
+          disabled={!archiveLoaded || isProcessing}
           onClick={() => inputRef.current?.click()}
         >
           {buttonLabel}
