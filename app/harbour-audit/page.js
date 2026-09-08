@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Camera, Download, FileImage, FileText, Plus, Ship, Trash2, X } from "lucide-react";
+import { ArrowLeft, Camera, Download, FileImage, FileText, Pencil, Plus, Ship, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import jsPDF from "jspdf";
 import HomeBackButton from "../components/HomeBackButton";
@@ -342,6 +342,7 @@ export default function HomePage() {
   const [activeId, setActiveId] = useState(null);
   const [description, setDescription] = useState("");
   const [photos, setPhotos] = useState([]);
+  const [editingDefectId, setEditingDefectId] = useState(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -443,8 +444,8 @@ export default function HomePage() {
 
   async function addPhotoFiles(files) {
     try {
-      const nextPhotos = await readFiles(files);
-      setPhotos((current) => [...current, ...nextPhotos]);
+      const [nextPhoto] = await readFiles(Array.from(files || []).slice(0, 1));
+      if (nextPhoto) setPhotos([nextPhoto]);
       setError("");
     } catch {
       setError("One of the selected photos could not be read. Please try a JPG or PNG image.");
@@ -460,15 +461,28 @@ export default function HomePage() {
     fileRef.current.value = "";
     if (useCamera) {
       fileRef.current.setAttribute("capture", "environment");
-      fileRef.current.removeAttribute("multiple");
     } else {
       fileRef.current.removeAttribute("capture");
-      fileRef.current.setAttribute("multiple", "");
     }
+    fileRef.current.removeAttribute("multiple");
     fileRef.current.click();
   }
 
-  function addDefect() {
+  function resetDefectEditor() {
+    setEditingDefectId(null);
+    setDescription("");
+    setPhotos([]);
+  }
+
+  function startEditingDefect(defect) {
+    setEditingDefectId(defect.id);
+    setDescription(defect.description || "");
+    setPhotos(Array.isArray(defect.photos) ? defect.photos : []);
+    setError("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function saveDefect() {
     if (!activeAudit) {
       return;
     }
@@ -476,18 +490,22 @@ export default function HomePage() {
       setError("Enter a defect description before adding the defect.");
       return;
     }
-    const defect = {
-      id: uid(),
-      description: description.trim(),
-      photos
-    };
-    setAudits((current) =>
-      current.map((audit) =>
-        audit.id === activeAudit.id ? { ...audit, defects: [...audit.defects, defect] } : audit
-      )
-    );
-    setDescription("");
-    setPhotos([]);
+    setAudits((current) => current.map((audit) => {
+      if (audit.id !== activeAudit.id) return audit;
+      if (editingDefectId) {
+        return {
+          ...audit,
+          defects: audit.defects.map((defect) => defect.id === editingDefectId
+            ? { ...defect, description: description.trim(), photos }
+            : defect)
+        };
+      }
+      return {
+        ...audit,
+        defects: [...audit.defects, { id: uid(), description: description.trim(), photos }]
+      };
+    }));
+    resetDefectEditor();
   }
 
   function deleteAudit(id) {
@@ -511,7 +529,7 @@ export default function HomePage() {
       <>
         <header className="detail-topbar">
           <div className="detail-inner">
-            <button className="icon-button" type="button" onClick={() => setActiveId(null)} aria-label="Back">
+            <button className="icon-button" type="button" onClick={() => { resetDefectEditor(); setActiveId(null); }} aria-label="Back">
               <ArrowLeft size={16} />
             </button>
             <div className="detail-title">
@@ -528,7 +546,7 @@ export default function HomePage() {
         <main className="detail-main">
           {error && <p className="error-banner">{error}</p>}
           <section className="card add-card">
-            <h2>Add defect</h2>
+            <h2>{editingDefectId ? "Edit defect" : "Add defect"}</h2>
             <div className="description-field">
               <textarea
                 rows={3}
@@ -542,7 +560,6 @@ export default function HomePage() {
               ref={fileRef}
               type="file"
               accept="image/*"
-              multiple
               hidden
               onChange={(event) => addPhotoFiles(event.target.files)}
             />
@@ -566,12 +583,17 @@ export default function HomePage() {
             <button
               className="primary-button"
               type="button"
-              onClick={addDefect}
+              onClick={saveDefect}
               disabled={!description.trim()}
             >
-              <Plus size={16} />
-              Add defect
+              {editingDefectId ? <Pencil size={16} /> : <Plus size={16} />}
+              {editingDefectId ? "Save changes" : "Add defect"}
             </button>
+            {editingDefectId && (
+              <button className="ghost-button edit-cancel" type="button" onClick={resetDefectEditor}>
+                Cancel editing
+              </button>
+            )}
           </section>
 
           <section className="recorded">
@@ -582,7 +604,13 @@ export default function HomePage() {
               <div className="defect-list">
                 {activeAudit.defects.map((defect) => (
                   <article className="card defect-card" key={defect.id}>
-                    <p>{defect.description || "No description"}</p>
+                    <div className="defect-card-heading">
+                      <p>{defect.description || "No description"}</p>
+                      <button className="edit-defect-button" type="button" onClick={() => startEditingDefect(defect)}>
+                        <Pencil size={14} />
+                        Edit
+                      </button>
+                    </div>
                     <span>{defect.photos.length} photos</span>
                     <div className="thumbs">
                       {defect.photos.map((photo) => (
