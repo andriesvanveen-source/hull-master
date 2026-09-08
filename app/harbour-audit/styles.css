@@ -112,6 +112,30 @@ p {
   line-height: 32px;
 }
 
+.list-heading-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.audit-filter {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.audit-filter select {
+  height: 36px;
+  min-width: 170px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  padding: 0 10px;
+  color: var(--foreground);
+  font: inherit;
+}
+
 .primary-small,
 .primary-button,
 .outline-small,
@@ -427,7 +451,9 @@ input::placeholder {
   width: 72px;
   height: 72px;
   border-radius: 8px;
-  object-fit: cover;
+  border: 1px solid var(--border);
+  background: #edf3f8;
+  object-fit: contain;
 }
 
 .recorded h2 {
@@ -549,6 +575,19 @@ input::placeholder {
   .list-heading {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .list-heading-actions {
+    align-items: stretch;
+  }
+
+  .audit-filter {
+    flex: 1;
+  }
+
+  .audit-filter select {
+    width: 100%;
+    min-width: 0;
   }
 
   .audit-row {

@@ -4,6 +4,13 @@ import { ArrowLeft, Camera, Download, FileImage, FileText, Pencil, Plus, Ship, T
 import { useEffect, useMemo, useRef, useState } from "react";
 import jsPDF from "jspdf";
 import HomeBackButton from "../components/HomeBackButton";
+import { COMMISSIONING_ENGINEERS } from "../../lib/constants";
+import {
+  deleteSharedHarbourAudit,
+  loadSharedHarbourAudits,
+  subscribeToHarbourAuditChanges,
+  syncHarbourAudit
+} from "../../lib/harbourAuditSupabase";
 
 const STORAGE_KEY = "harbour-audit-buddy-audits";
 const DATABASE_NAME = "harbour-audit-buddy";
@@ -282,12 +289,13 @@ async function exportAuditPdf(audit) {
   doc.setFontSize(12);
   doc.setTextColor(0, 0, 0);
   doc.text(`Generated: ${audit.createdAt}`, pageW / 2, 78, { align: "center" });
+  doc.text(`Audited by: ${audit.auditor || "Not specified"}`, pageW / 2, 96, { align: "center" });
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
-  doc.text("Defects", margin, 112);
+  doc.text("Defects", margin, 130);
 
-  let y = 142;
+  let y = 160;
   let defectNumber = 1;
   for (const defect of photoDefects) {
     y = addPhotoDefect(doc, defect, defectNumber, y, layout, logoDataUrl);
@@ -339,11 +347,20 @@ export default function HomePage() {
   const [loaded, setLoaded] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
+  const [newAuditor, setNewAuditor] = useState("");
+  const [selectedAuditor, setSelectedAuditor] = useState("all");
   const [activeId, setActiveId] = useState(null);
   const [description, setDescription] = useState("");
   const [photos, setPhotos] = useState([]);
   const [editingDefectId, setEditingDefectId] = useState(null);
   const [error, setError] = useState("");
+  const auditsRef = useRef([]);
+  const sharedStartedRef = useRef(false);
+  const pendingSyncIds = useRef(new Set());
+
+  useEffect(() => {
+    auditsRef.current = audits;
+  }, [audits]);
 
   useEffect(() => {
     let isMounted = true;
@@ -371,7 +388,15 @@ export default function HomePage() {
         const savedAudits = [
           ...indexedAudits,
           ...legacyAudits.filter((audit) => !indexedIds.has(audit.id))
-        ];
+        ].map((audit) => ({
+          ...audit,
+          auditor: audit.auditor || "",
+          updatedAt: audit.updatedAt || new Date().toISOString(),
+          defects: (audit.defects || []).map((defect) => ({
+            ...defect,
+            updatedAt: defect.updatedAt || audit.updatedAt || new Date().toISOString()
+          }))
+        }));
 
         if (legacyAudits.some((audit) => !indexedIds.has(audit.id))) {
           try {
@@ -409,9 +434,6 @@ export default function HomePage() {
 
     let isCurrent = true;
     queueAuditSave(audits)
-      .then(() => {
-        if (isCurrent) setError("");
-      })
       .catch(() => {
         if (isCurrent) {
           setError("This browser could not save the audit locally. Keep this page open and export the PDF before leaving.");
@@ -423,23 +445,110 @@ export default function HomePage() {
     };
   }, [audits, loaded]);
 
-  const activeAudit = useMemo(() => audits.find((audit) => audit.id === activeId), [audits, activeId]);
+  useEffect(() => {
+    if (!loaded || sharedStartedRef.current) return;
+    sharedStartedRef.current = true;
+    let isMounted = true;
+    let refreshTimer;
 
-  function createAudit() {
+    async function refreshSharedAudits({ migrateLocal = false } = {}) {
+      try {
+        const remoteAudits = await loadSharedHarbourAudits();
+        if (!isMounted) return;
+        const localAudits = auditsRef.current;
+        const remoteIds = new Set(remoteAudits.map((audit) => audit.id));
+        const merged = [
+          ...remoteAudits.map((remoteAudit) => {
+            const localAudit = localAudits.find((audit) => audit.id === remoteAudit.id);
+            if (!localAudit) return remoteAudit;
+            const localTime = Date.parse(localAudit.updatedAt || "") || 0;
+            const remoteTime = Date.parse(remoteAudit.updatedAt || "") || 0;
+            return pendingSyncIds.current.has(remoteAudit.id) || localTime > remoteTime
+              ? localAudit
+              : remoteAudit;
+          }),
+          ...localAudits.filter((audit) => !remoteIds.has(audit.id))
+        ];
+        auditsRef.current = merged;
+        setAudits(merged);
+        await queueAuditSave(merged);
+
+        if (migrateLocal) {
+          for (const audit of localAudits) {
+            try {
+              pendingSyncIds.current.add(audit.id);
+              await syncHarbourAudit(audit);
+            } finally {
+              pendingSyncIds.current.delete(audit.id);
+            }
+          }
+        }
+        setError("");
+      } catch (syncError) {
+        if (isMounted) {
+          setError(`Working locally. ${syncError.message || "Run the Harbour Audit Supabase SQL to enable sharing."}`);
+        }
+      }
+    }
+
+    refreshSharedAudits({ migrateLocal: true });
+    const unsubscribe = subscribeToHarbourAuditChanges(() => {
+      window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => refreshSharedAudits(), 250);
+    });
+    return () => {
+      isMounted = false;
+      window.clearTimeout(refreshTimer);
+      unsubscribe();
+    };
+  }, [loaded]);
+
+  const activeAudit = useMemo(() => audits.find((audit) => audit.id === activeId), [audits, activeId]);
+  const auditorOptions = useMemo(() => [...new Set([
+    ...COMMISSIONING_ENGINEERS,
+    ...audits.map((audit) => audit.auditor).filter(Boolean)
+  ])].sort((a, b) => a.localeCompare(b)), [audits]);
+  const visibleAudits = useMemo(() => selectedAuditor === "all"
+    ? audits
+    : audits.filter((audit) => audit.auditor === selectedAuditor), [audits, selectedAuditor]);
+
+  async function persistAndSync(nextAudits, changedAudit) {
+    auditsRef.current = nextAudits;
+    setAudits(nextAudits);
+    pendingSyncIds.current.add(changedAudit.id);
+    try {
+      await queueAuditSave(nextAudits);
+      await syncHarbourAudit(changedAudit);
+      setError("");
+    } catch (syncError) {
+      setError(`Saved locally; sharing is pending. ${syncError.message || "Supabase is unavailable."}`);
+    } finally {
+      pendingSyncIds.current.delete(changedAudit.id);
+    }
+  }
+
+  async function createAudit() {
     const title = newTitle.trim();
-    if (!title) {
+    const auditor = newAuditor.trim();
+    if (!title || !auditor) {
+      setError("Enter both a title and the auditor's name.");
       return;
     }
+    const updatedAt = new Date().toISOString();
     const audit = {
       id: uid(),
       title,
+      auditor,
       createdAt: todayText(),
+      updatedAt,
       defects: []
     };
-    setAudits((current) => [audit, ...current]);
+    const nextAudits = [audit, ...auditsRef.current];
     setActiveId(audit.id);
     setNewTitle("");
+    setNewAuditor("");
     setModalOpen(false);
+    await persistAndSync(nextAudits, audit);
   }
 
   async function addPhotoFiles(files) {
@@ -482,7 +591,7 @@ export default function HomePage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function saveDefect() {
+  async function saveDefect() {
     if (!activeAudit) {
       return;
     }
@@ -490,26 +599,43 @@ export default function HomePage() {
       setError("Enter a defect description before adding the defect.");
       return;
     }
-    setAudits((current) => current.map((audit) => {
+    const updatedAt = new Date().toISOString();
+    let changedAudit;
+    const nextAudits = auditsRef.current.map((audit) => {
       if (audit.id !== activeAudit.id) return audit;
       if (editingDefectId) {
-        return {
+        changedAudit = {
           ...audit,
+          updatedAt,
           defects: audit.defects.map((defect) => defect.id === editingDefectId
-            ? { ...defect, description: description.trim(), photos }
+            ? { ...defect, description: description.trim(), photos, updatedAt }
             : defect)
         };
+        return changedAudit;
       }
-      return {
+      changedAudit = {
         ...audit,
-        defects: [...audit.defects, { id: uid(), description: description.trim(), photos }]
+        updatedAt,
+        defects: [...audit.defects, { id: uid(), description: description.trim(), photos, updatedAt }]
       };
-    }));
+      return changedAudit;
+    });
     resetDefectEditor();
+    if (changedAudit) await persistAndSync(nextAudits, changedAudit);
   }
 
-  function deleteAudit(id) {
-    setAudits((current) => current.filter((audit) => audit.id !== id));
+  async function deleteAudit(id) {
+    const audit = auditsRef.current.find((item) => item.id === id);
+    const nextAudits = auditsRef.current.filter((item) => item.id !== id);
+    auditsRef.current = nextAudits;
+    setAudits(nextAudits);
+    try {
+      await queueAuditSave(nextAudits);
+      if (audit) await deleteSharedHarbourAudit(audit);
+      setError("");
+    } catch (deleteError) {
+      setError(`Deleted locally; shared deletion is pending. ${deleteError.message || "Supabase is unavailable."}`);
+    }
   }
 
   async function handleExport(audit) {
@@ -534,7 +660,7 @@ export default function HomePage() {
             </button>
             <div className="detail-title">
               <h1>{activeAudit.title}</h1>
-              <p>{activeAudit.defects.length} defects</p>
+              <p>{activeAudit.defects.length} defects · {activeAudit.auditor || "Auditor not specified"}</p>
             </div>
             <button className="outline-small" type="button" onClick={() => handleExport(activeAudit)}>
               <Download size={14} />
@@ -646,27 +772,38 @@ export default function HomePage() {
         <div className="list-heading">
           <div>
             <h2>Audits</h2>
-            <p>{audits.length} {audits.length === 1 ? "audit" : "audits"} recorded</p>
+            <p>{visibleAudits.length === audits.length
+              ? `${audits.length} ${audits.length === 1 ? "audit" : "audits"} recorded`
+              : `${visibleAudits.length} of ${audits.length} audits shown`}</p>
           </div>
-          <button className="primary-small" type="button" onClick={() => setModalOpen(true)}>
-            <Plus size={16} />
-            New audit
-          </button>
+          <div className="list-heading-actions">
+            <label className="audit-filter">
+              <span>Auditor</span>
+              <select value={selectedAuditor} onChange={(event) => setSelectedAuditor(event.target.value)}>
+                <option value="all">All auditors</option>
+                {auditorOptions.map((name) => <option value={name} key={name}>{name}</option>)}
+              </select>
+            </label>
+            <button className="primary-small" type="button" onClick={() => setModalOpen(true)}>
+              <Plus size={16} />
+              New audit
+            </button>
+          </div>
         </div>
 
-        {audits.length === 0 ? (
+        {visibleAudits.length === 0 ? (
           <section className="card empty-card">
             <FileText size={30} />
-            <h3>No audits yet</h3>
-            <p>Create your first audit to start logging defects.</p>
+            <h3>{audits.length ? "No matching audits" : "No audits yet"}</h3>
+            <p>{audits.length ? "Choose another auditor to see their audits." : "Create your first audit to start logging defects."}</p>
           </section>
         ) : (
           <div className="audit-list">
-            {audits.map((audit) => (
+            {visibleAudits.map((audit) => (
               <article className="card audit-row" key={audit.id}>
                 <button className="audit-main" type="button" onClick={() => setActiveId(audit.id)}>
                   <strong>{audit.title}</strong>
-                  <span>{audit.defects.length} defects · {audit.createdAt}</span>
+                  <span>{audit.defects.length} defects · {audit.auditor || "Auditor not specified"} · {audit.createdAt}</span>
                 </button>
                 <div className="audit-actions">
                   <button className="outline-small" type="button" onClick={() => handleExport(audit)}>
@@ -705,11 +842,26 @@ export default function HomePage() {
                 }}
               />
             </label>
+            <label>
+              Auditor
+              <input
+                list="harbour-auditor-options"
+                placeholder="Select or type a name"
+                value={newAuditor}
+                onChange={(event) => setNewAuditor(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") createAudit();
+                }}
+              />
+              <datalist id="harbour-auditor-options">
+                {auditorOptions.map((name) => <option value={name} key={name} />)}
+              </datalist>
+            </label>
             <div className="modal-actions">
               <button className="ghost-button" type="button" onClick={() => setModalOpen(false)}>
                 Cancel
               </button>
-              <button className="primary-small" type="button" onClick={createAudit}>
+              <button className="primary-small" type="button" onClick={createAudit} disabled={!newTitle.trim() || !newAuditor.trim()}>
                 Create
               </button>
             </div>

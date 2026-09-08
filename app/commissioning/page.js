@@ -287,7 +287,12 @@ export default function HomePage() {
           </button>
         </div>
 
-        {error ? <p className="muted form-error">{error}</p> : null}
+        {error ? (
+          <div className="register-alert" role="alert">
+            <span>{error}</span>
+            <button type="button" onClick={() => setError("")} aria-label="Dismiss notification">×</button>
+          </div>
+        ) : null}
 
         {isAddingBoat ? (
           <form className="quick-boat-form register-form" onSubmit={handleCreateBoat}>

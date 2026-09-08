@@ -14,6 +14,7 @@ import {
   getBoatAreas,
   getCommonDefectAreaNames,
   isGeneralArea,
+  normalizeBoatArea,
   orderBoatAreas
 } from "../../../lib/constants";
 import { exportBoatReport } from "../../../lib/pdfReport";
@@ -304,7 +305,7 @@ export default function BoatLogPage({ params }) {
 
   const areaRows = useMemo(() => {
     return boatAreas.reduce((acc, area) => {
-      acc[area] = boat ? boat.defects.filter((defect) => defect.area === area) : [];
+      acc[area] = boat ? boat.defects.filter((defect) => normalizeBoatArea(defect.area) === area) : [];
       return acc;
     }, {});
   }, [boat, boatAreas]);
@@ -319,7 +320,7 @@ export default function BoatLogPage({ params }) {
 
     boatAreas.filter((area) => !isGeneralArea(area)).forEach((area) => {
       boat.defects
-        .filter((defect) => defect.area === area && defect.text.trim())
+        .filter((defect) => normalizeBoatArea(defect.area) === area && defect.text.trim())
         .forEach((defect) => {
           numbers[defect.id] = current;
           current += 1;
@@ -1288,23 +1289,24 @@ export default function BoatLogPage({ params }) {
           </button>
           {isAddingArea ? (
             <form className="quick-boat-form" onSubmit={addArea} style={{ width: "min(520px, 100%)" }}>
-              <select
+              <input
                 value={newAreaName}
                 onChange={(event) => setNewAreaName(event.target.value)}
+                list="areaOptions"
+                placeholder="Select or type an area"
                 aria-label="Area to add"
-                disabled={isSavingAreas || areaOptions.length === 0}
-              >
-                <option value="">Select area</option>
+                disabled={isSavingAreas}
+                autoComplete="off"
+              />
+              <datalist id="areaOptions">
                 {areaOptions.map((area) => (
                   <option key={area} value={area}>{area}</option>
                 ))}
-              </select>
+              </datalist>
               <button className="button" type="submit" disabled={isSavingAreas || !newAreaName}>Add</button>
             </form>
           ) : null}
-          {isAddingArea && areaOptions.length === 0 ? (
-            <p className="autosave-note" style={{ marginTop: 0 }}>All suggested areas are already on this boat.</p>
-          ) : null}
+          {isAddingArea ? <p className="autosave-note" style={{ marginTop: 0 }}>Choose a suggestion or type a custom area name.</p> : null}
         </div>
 
         <section className="print-table-wrap">

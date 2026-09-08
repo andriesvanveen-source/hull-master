@@ -1,5 +1,6 @@
 import Link from "next/link";
 import styles from "./home.module.css";
+import InstallAppButton from "./components/InstallAppButton";
 
 const apps = [
   { href: "/commissioning", title: "Commissioning", icon: "HM" },
@@ -30,6 +31,7 @@ export default function HomePage() {
           </Link>
         ))}
       </nav>
+      <InstallAppButton />
     </main>
   );
 }

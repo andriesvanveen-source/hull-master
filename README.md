@@ -37,8 +37,9 @@ Run these scripts in the Supabase SQL Editor as required:
 2. Files in `supabase/migrations/` in date order — commissioning additions
 3. `supabase/pdf-signoff-schema.sql` — optional PDF job logging
 4. `supabase/stock-codes-schema.sql` — stock items, categories, access policies, and image bucket
+5. `supabase/harbour-audit-schema.sql` — shared harbour audits, defects, auditor names, and photo storage (new; run this before testing shared audits)
 
-The Harbour Audit tool stores its working data and photos locally in the browser. Stock Codes saves locally first and then synchronizes its records and images to Supabase.
+Harbour Audit and Stock Codes save locally first and then synchronize their records and images to Supabase. Existing Harbour Audit browser data is retained as a migration backup and uploaded only after the shared schema is available.
 
 ## Verification
 

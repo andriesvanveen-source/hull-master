@@ -427,6 +427,35 @@ textarea:focus {
   grid-column: 1 / -1;
 }
 
+.register-alert {
+  position: fixed;
+  z-index: 1000;
+  top: max(18px, env(safe-area-inset-top));
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: min(520px, calc(100% - 28px));
+  border: 1px solid #e4a5a5;
+  border-radius: 8px;
+  padding: 13px 14px;
+  background: #fff4f4;
+  color: #8f2525;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.2);
+  font-size: 14px;
+  font-weight: 700;
+  transform: translateX(-50%);
+}
+
+.register-alert span { flex: 1; }
+.register-alert button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 22px;
+  line-height: 1;
+}
+
 .boat-list {
   display: grid;
   gap: 12px;
@@ -1587,4 +1616,3 @@ textarea:focus {
     height: 38px;
   }
 }
-
