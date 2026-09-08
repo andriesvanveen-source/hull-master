@@ -668,6 +668,21 @@ export default function HomePage() {
     if (changedAudit) await persistAndSync(nextAudits, changedAudit);
   }
 
+  async function removeEditingDefect() {
+    if (!activeAudit || !editingDefectId) return;
+    const defect = activeAudit.defects.find((item) => item.id === editingDefectId);
+    if (!defect || !window.confirm(`Remove this defect?\n\n${defect.description}`)) return;
+
+    const changedAudit = {
+      ...activeAudit,
+      updatedAt: new Date().toISOString(),
+      defects: activeAudit.defects.filter((item) => item.id !== editingDefectId)
+    };
+    const nextAudits = auditsRef.current.map((audit) => audit.id === changedAudit.id ? changedAudit : audit);
+    resetDefectEditor();
+    await persistAndSync(nextAudits, changedAudit);
+  }
+
   async function deleteAudit(id) {
     const audit = auditsRef.current.find((item) => item.id === id);
     const nextAudits = auditsRef.current.filter((item) => item.id !== id);
@@ -790,9 +805,15 @@ export default function HomePage() {
               {editingDefectId ? "Save changes" : "Add defect"}
             </button>
             {editingDefectId && (
-              <button className="ghost-button edit-cancel" type="button" onClick={resetDefectEditor}>
-                Cancel editing
-              </button>
+              <div className="edit-defect-actions">
+                <button className="ghost-button edit-cancel" type="button" onClick={resetDefectEditor}>
+                  Cancel editing
+                </button>
+                <button className="delete-defect-button" type="button" onClick={removeEditingDefect}>
+                  <Trash2 size={15} />
+                  Remove defect
+                </button>
+              </div>
             )}
           </section>
 

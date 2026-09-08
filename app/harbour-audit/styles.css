@@ -336,6 +336,28 @@ p {
   color: #842929;
 }
 
+.edit-defect-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.delete-defect-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 36px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fff1f2;
+  padding: 0 12px;
+  color: #991b1b;
+  font-weight: 600;
+}
+
 .detail-inner {
   display: grid;
   grid-template-columns: 36px minmax(0, 1fr) auto;
