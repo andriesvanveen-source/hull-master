@@ -353,7 +353,11 @@ export default function HomePage() {
   const [description, setDescription] = useState("");
   const [photos, setPhotos] = useState([]);
   const [editingDefectId, setEditingDefectId] = useState(null);
+  const [editingAuditDetails, setEditingAuditDetails] = useState(false);
+  const [auditTitleDraft, setAuditTitleDraft] = useState("");
+  const [auditAuditorDraft, setAuditAuditorDraft] = useState("");
   const [error, setError] = useState("");
+  const [syncStatus, setSyncStatus] = useState("Loading saved audits...");
   const auditsRef = useRef([]);
   const sharedStartedRef = useRef(false);
   const pendingSyncIds = useRef(new Set());
@@ -409,6 +413,7 @@ export default function HomePage() {
         // Intentionally retain localStorage as a read-only migration backup.
         if (isMounted) {
           setAudits(savedAudits);
+          setSyncStatus("Saved locally");
         }
       } catch {
         if (isMounted) {
@@ -474,18 +479,27 @@ export default function HomePage() {
         await queueAuditSave(merged);
 
         if (migrateLocal) {
+          const failedAuditTitles = [];
           for (const audit of localAudits) {
             try {
               pendingSyncIds.current.add(audit.id);
               await syncHarbourAudit(audit);
-            } finally {
               pendingSyncIds.current.delete(audit.id);
+            } catch {
+              // Keep the local version protected from stale realtime data. It will
+              // be retried on the next load or after the next local edit.
+              failedAuditTitles.push(audit.title || "Untitled audit");
             }
+          }
+          if (failedAuditTitles.length) {
+            throw new Error(`${failedAuditTitles.length} locally saved audit${failedAuditTitles.length === 1 ? " is" : "s are"} still waiting to sync.`);
           }
         }
         setError("");
+        setSyncStatus("All audits synced");
       } catch (syncError) {
         if (isMounted) {
+          setSyncStatus("Saved locally — waiting to sync");
           setError(`Working locally. ${syncError.message || "Run the Harbour Audit Supabase SQL to enable sharing."}`);
         }
       }
@@ -518,12 +532,14 @@ export default function HomePage() {
     pendingSyncIds.current.add(changedAudit.id);
     try {
       await queueAuditSave(nextAudits);
+      setSyncStatus("Saved locally — syncing...");
       await syncHarbourAudit(changedAudit);
+      pendingSyncIds.current.delete(changedAudit.id);
+      setSyncStatus("All audits synced");
       setError("");
     } catch (syncError) {
+      setSyncStatus("Saved locally — waiting to sync");
       setError(`Saved locally; sharing is pending. ${syncError.message || "Supabase is unavailable."}`);
-    } finally {
-      pendingSyncIds.current.delete(changedAudit.id);
     }
   }
 
@@ -549,6 +565,34 @@ export default function HomePage() {
     setNewAuditor("");
     setModalOpen(false);
     await persistAndSync(nextAudits, audit);
+  }
+
+  function startEditingAuditDetails() {
+    if (!activeAudit) return;
+    setAuditTitleDraft(activeAudit.title || "");
+    setAuditAuditorDraft(activeAudit.auditor || "");
+    setEditingAuditDetails(true);
+    setError("");
+  }
+
+  async function saveAuditDetails(event) {
+    event.preventDefault();
+    if (!activeAudit) return;
+    const title = auditTitleDraft.trim();
+    const auditor = auditAuditorDraft.trim();
+    if (!title || !auditor) {
+      setError("Enter both an audit name and the auditor's name.");
+      return;
+    }
+    const changedAudit = {
+      ...activeAudit,
+      title,
+      auditor,
+      updatedAt: new Date().toISOString()
+    };
+    const nextAudits = auditsRef.current.map((audit) => audit.id === changedAudit.id ? changedAudit : audit);
+    setEditingAuditDetails(false);
+    await persistAndSync(nextAudits, changedAudit);
   }
 
   async function addPhotoFiles(files) {
@@ -662,15 +706,45 @@ export default function HomePage() {
               <h1>{activeAudit.title}</h1>
               <p>{activeAudit.defects.length} defects · {activeAudit.auditor || "Auditor not specified"}</p>
             </div>
-            <button className="outline-small" type="button" onClick={() => handleExport(activeAudit)}>
-              <Download size={14} />
-              PDF
-            </button>
+            <div className="detail-actions">
+              <button className="outline-small" type="button" onClick={startEditingAuditDetails}>
+                <Pencil size={14} />
+                Edit details
+              </button>
+              <button className="outline-small" type="button" onClick={() => handleExport(activeAudit)}>
+                <Download size={14} />
+                PDF
+              </button>
+            </div>
           </div>
         </header>
 
         <main className="detail-main">
+          <p className="sync-status" aria-live="polite">{syncStatus}</p>
           {error && <p className="error-banner">{error}</p>}
+          {editingAuditDetails && (
+            <form className="card audit-details-form" onSubmit={saveAuditDetails}>
+              <label>
+                Audit name
+                <input value={auditTitleDraft} onChange={(event) => setAuditTitleDraft(event.target.value)} />
+              </label>
+              <label>
+                Auditor
+                <input
+                  list="detail-auditor-options"
+                  value={auditAuditorDraft}
+                  onChange={(event) => setAuditAuditorDraft(event.target.value)}
+                />
+                <datalist id="detail-auditor-options">
+                  {auditorOptions.map((name) => <option value={name} key={name} />)}
+                </datalist>
+              </label>
+              <div className="audit-details-actions">
+                <button className="ghost-button" type="button" onClick={() => setEditingAuditDetails(false)}>Cancel</button>
+                <button className="primary-small" type="submit" disabled={!auditTitleDraft.trim() || !auditAuditorDraft.trim()}>Save details</button>
+              </div>
+            </form>
+          )}
           <section className="card add-card">
             <h2>{editingDefectId ? "Edit defect" : "Add defect"}</h2>
             <div className="description-field">
@@ -769,6 +843,7 @@ export default function HomePage() {
       </header>
 
       <main className="list-main">
+        <p className="sync-status" aria-live="polite">{syncStatus}</p>
         <div className="list-heading">
           <div>
             <h2>Audits</h2>

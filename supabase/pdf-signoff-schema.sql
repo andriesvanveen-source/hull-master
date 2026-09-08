@@ -1,4 +1,4 @@
-+create table if not exists public.pdf_signoff_jobs (
+create table if not exists public.pdf_signoff_jobs (
   id uuid primary key default gen_random_uuid(),
   created_at timestamptz not null default now(),
   discipline text,
@@ -43,4 +43,3 @@ on public.pdf_signoff_job_files
 for select
 to anon
 using (true);
-

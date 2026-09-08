@@ -97,6 +97,14 @@ p {
   padding: 32px 24px;
 }
 
+.sync-status {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 18px;
+  text-align: right;
+}
+
 .list-heading {
   display: flex;
   align-items: center;
@@ -348,6 +356,44 @@ p {
   font-size: 18px;
   font-weight: 600;
   line-height: 28px;
+}
+
+.detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.audit-details-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 16px;
+}
+
+.audit-details-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.audit-details-form input {
+  width: 100%;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 12px;
+  color: var(--foreground);
+  font: inherit;
+}
+
+.audit-details-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .detail-main {
@@ -608,8 +654,16 @@ input::placeholder {
   }
 
   .detail-inner .outline-small {
-    grid-column: 2;
     justify-self: start;
+  }
+
+  .detail-actions {
+    grid-column: 2;
+    flex-wrap: wrap;
+  }
+
+  .audit-details-form {
+    grid-template-columns: 1fr;
   }
 
   .card,

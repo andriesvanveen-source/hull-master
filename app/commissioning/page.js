@@ -107,7 +107,7 @@ export default function HomePage() {
       try {
         window.localStorage.setItem(REGISTER_CACHE_KEY, JSON.stringify(state));
       } catch {
-        window.localStorage.removeItem(REGISTER_CACHE_KEY);
+        // Keep the last successfully written recovery copy if storage is full.
       }
     }
   }, [hasLoaded, state]);

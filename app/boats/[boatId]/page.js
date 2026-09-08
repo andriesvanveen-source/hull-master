@@ -147,7 +147,7 @@ export default function BoatLogPage({ params }) {
       try {
         window.localStorage.setItem(boatCacheKey(params.boatId), JSON.stringify(state));
       } catch {
-        window.localStorage.removeItem(boatCacheKey(params.boatId));
+        // Keep the last successfully written recovery copy if storage is full.
       }
     }
   }, [hasLoaded, params.boatId, state]);
@@ -885,7 +885,7 @@ export default function BoatLogPage({ params }) {
       try {
         window.localStorage.setItem(boatCacheKey(nextBoat.id), JSON.stringify(nextState));
       } catch {
-        window.localStorage.removeItem(boatCacheKey(nextBoat.id));
+        // Keep any existing recovery copy if storage is full.
       }
 
       setSaveError("");

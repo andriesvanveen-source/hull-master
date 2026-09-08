@@ -30,6 +30,26 @@ create index if not exists harbour_audits_updated_at_idx on public.harbour_audit
 create index if not exists harbour_audit_defects_audit_id_idx on public.harbour_audit_defects(audit_id);
 create index if not exists harbour_audit_photos_defect_id_idx on public.harbour_audit_photos(defect_id);
 
+create or replace function public.set_harbour_audit_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists set_harbour_audits_updated_at on public.harbour_audits;
+create trigger set_harbour_audits_updated_at
+before update on public.harbour_audits
+for each row execute function public.set_harbour_audit_updated_at();
+
+drop trigger if exists set_harbour_audit_defects_updated_at on public.harbour_audit_defects;
+create trigger set_harbour_audit_defects_updated_at
+before update on public.harbour_audit_defects
+for each row execute function public.set_harbour_audit_updated_at();
+
 alter table public.harbour_audits enable row level security;
 alter table public.harbour_audit_defects enable row level security;
 alter table public.harbour_audit_photos enable row level security;
@@ -40,6 +60,11 @@ drop policy if exists "harbour audit photos shared access" on public.harbour_aud
 create policy "harbour audits shared access" on public.harbour_audits for all to anon, authenticated using (true) with check (true);
 create policy "harbour audit defects shared access" on public.harbour_audit_defects for all to anon, authenticated using (true) with check (true);
 create policy "harbour audit photos shared access" on public.harbour_audit_photos for all to anon, authenticated using (true) with check (true);
+
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on public.harbour_audits to anon, authenticated;
+grant select, insert, update, delete on public.harbour_audit_defects to anon, authenticated;
+grant select, insert, update, delete on public.harbour_audit_photos to anon, authenticated;
 
 insert into storage.buckets (id, name, public)
 values ('harbour-audit-photos', 'harbour-audit-photos', true)
