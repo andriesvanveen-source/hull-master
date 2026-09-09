@@ -1,36 +1,83 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import HomeBackButton from "../components/HomeBackButton";
 import styles from "./qualityControl.module.css";
+import { createQualityBoat, loadQualityState } from "./qualityControlStorage";
 
 export default function QualityControlPage() {
+  const [state, setState] = useState({ boats: [] });
+  const [loaded, setLoaded] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [name, setName] = useState("");
+  const [qualityController, setQualityController] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setState(loadQualityState());
+    setLoaded(true);
+  }, []);
+
+  const defectCount = useMemo(
+    () => state.boats.reduce((total, boat) => total + boat.defects.length, 0),
+    [state.boats]
+  );
+
+  function addBoat(event) {
+    event.preventDefault();
+    const normalizedName = name.trim().toUpperCase();
+    if (!normalizedName) return setError("Enter a hull number.");
+    if (state.boats.some((boat) => boat.name === normalizedName)) return setError(`${normalizedName} already exists.`);
+    const nextState = createQualityBoat(normalizedName, qualityController.trim());
+    setState(nextState);
+    setName("");
+    setQualityController("");
+    setShowForm(false);
+    setError("");
+  }
+
   return (
     <div className={styles.shell}>
       <HomeBackButton />
-      <header className={styles.header}>
-        <div className={styles.headerInner}>
-          <div className={styles.brand}>
-            <span className={styles.anchor} aria-hidden="true">⚓</span>
-            <span>Quality Control</span>
+      <main className={styles.registerPage}>
+        <header className={styles.topbar}>
+          <div className={styles.brand}><span className={styles.anchor} aria-hidden="true">⚓</span><span>Quality Control Log</span></div>
+          <div className={styles.topbarActions}>
+            <span>{state.boats.length} {state.boats.length === 1 ? "hull" : "hulls"}</span>
+            <Link className={styles.standardButton} href="/quality-control/standard">Quality Standard</Link>
           </div>
-          <Link className={styles.headerButton} href="/quality-control/standard">
-            Quality Standard
-          </Link>
-        </div>
-      </header>
+        </header>
 
-      <main className={styles.main}>
         <section className={styles.hero}>
-          <p className={styles.kicker}>Quality audit</p>
-          <h1>Boats</h1>
-          <p className={styles.intro}>Quality Control audits will be managed here.</p>
+          <div><p className={styles.kicker}>Quality audit</p><h1>Boats</h1></div>
+          <button className={styles.newAuditButton} type="button" onClick={() => setShowForm((value) => !value)}><span aria-hidden="true">+</span> New audit</button>
         </section>
 
-        <section className={styles.emptyState}>
-          <h2>Quality audits</h2>
-          <p>The boat register and audit workflow will be added here next.</p>
-        </section>
+        {error ? <div className={styles.alert} role="alert">{error}</div> : null}
+        {showForm ? (
+          <form className={styles.newBoatForm} onSubmit={addBoat}>
+            <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Hull number" aria-label="Hull number" autoFocus />
+            <input value={qualityController} onChange={(event) => setQualityController(event.target.value)} placeholder="Quality Controller" aria-label="Quality Controller" />
+            <button type="submit">Add</button>
+            <button type="button" className={styles.secondaryButton} onClick={() => setShowForm(false)}>Cancel</button>
+          </form>
+        ) : null}
 
-        <Link className={styles.homeLink} href="/">Return to Hull Master</Link>
+        <div className={styles.summary}>Local browser storage · {defectCount} logged defects</div>
+        <section className={styles.boatList} aria-label="Quality Control boat audits">
+          {!loaded ? <div className={styles.empty}>Loading audits...</div> : state.boats.length === 0 ? (
+            <div className={styles.empty}>No audits yet. Start a new audit to log defects.</div>
+          ) : state.boats.map((boat) => (
+            <article className={styles.boatCard} key={boat.id}>
+              <Link href={`/quality-control/boats/${boat.id}`}>
+                <strong>{boat.name}</strong>
+                <span>{boat.defects.length} {boat.defects.length === 1 ? "defect" : "defects"} · {boat.completedAreas.length} areas audited</span>
+                <small>Quality Controller: {boat.qualityController || "Not assigned"}</small>
+              </Link>
+            </article>
+          ))}
+        </section>
       </main>
     </div>
   );

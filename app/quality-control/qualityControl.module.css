@@ -1,157 +1,35 @@
-.shell {
-  min-height: 100vh;
-  color: #0b2d49;
-  background:
-    radial-gradient(circle at 20% 0%, rgba(47, 111, 165, 0.11), transparent 34%),
-    linear-gradient(100deg, #e5edf5 0%, #f3f7fb 52%, #dbe6f0 100%);
-}
-
-.header {
-  position: sticky;
-  top: 0;
-  z-index: 12;
-  border-bottom: 1px solid rgba(158, 176, 194, 0.72);
-  background: rgba(238, 244, 249, 0.94);
-  backdrop-filter: blur(14px);
-}
-
-.headerInner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  width: min(920px, 100%);
-  min-height: 74px;
-  margin: 0 auto;
-  padding: 12px 22px;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-family: "Courier New", Courier, monospace;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-
-.anchor {
-  color: #4b78a6;
-  font-size: 30px;
-  line-height: 1;
-}
-
-.headerButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 38px;
-  border-radius: 7px;
-  padding: 0 14px;
-  text-decoration: none;
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.headerButton {
-  border: 1px solid #0b2d49;
-  background: #0b2d49;
-  color: #fff;
-}
-
-.main {
-  width: min(920px, 100%);
-  margin: 0 auto;
-  padding: 58px 22px 50px;
-}
-
-.hero {
-  margin-bottom: 34px;
-  padding-bottom: 30px;
-  border-bottom: 2px solid rgba(158, 176, 194, 0.58);
-}
-
-.kicker {
-  margin: 0 0 12px;
-  color: #4d5664;
-  font-family: "Courier New", Courier, monospace;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-}
-
-.hero h1 {
-  margin: 0;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(52px, 11vw, 72px);
-  line-height: 0.95;
-}
-
-.intro {
-  margin: 18px 0 0;
-  color: #526477;
-  font-size: 17px;
-}
-
-.emptyState {
-  border: 1px solid rgba(158, 176, 194, 0.72);
-  border-radius: 10px;
-  background: rgba(248, 251, 254, 0.82);
-  box-shadow: 0 10px 28px rgba(11, 45, 73, 0.07);
-}
-
-.emptyState h2 {
-  margin: 10px 0 8px;
-  font-size: 21px;
-}
-
-.emptyState p {
-  margin: 0 0 18px;
-  color: #526477;
-  line-height: 1.5;
-}
-
-.emptyState {
-  margin-top: 18px;
-  padding: 24px;
-}
-
-.emptyState h2 {
-  margin-top: 0;
-}
-
-.emptyState p {
-  margin-bottom: 0;
-}
-
-.homeLink {
-  display: inline-block;
-  margin-top: 24px;
-  color: #315f89;
-  font-size: 13px;
-}
+.shell { min-height: 100vh; color: #0b2d49; background: #e8eef5; }
+.registerPage { width: min(920px, calc(100% - 40px)); margin: 0 auto; padding: 14px 0 52px; }
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 18px; min-height: 62px; border-bottom: 1px solid #bdcad6; }
+.brand, .topbarActions { display: flex; align-items: center; gap: 12px; }
+.brand { font: 700 14px/1 "Courier New", monospace; letter-spacing: .18em; text-transform: uppercase; }
+.anchor { color: #4b78a6; font-size: 28px; }
+.topbarActions { color: #526477; font-size: 13px; }
+.standardButton, .newAuditButton, .newBoatForm button, .secondaryButton { display: inline-flex; align-items: center; justify-content: center; min-height: 38px; border: 1px solid #0b2d49; border-radius: 7px; padding: 0 14px; background: #0b2d49; color: #fff; font-size: 13px; font-weight: 800; text-decoration: none; cursor: pointer; }
+.hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; padding: 54px 0 28px; }
+.kicker { margin: 0 0 10px; color: #526477; font: 700 12px/1 "Courier New", monospace; letter-spacing: .22em; text-transform: uppercase; }
+.hero h1 { margin: 0; font-family: Georgia, serif; font-size: clamp(52px, 11vw, 72px); line-height: .9; }
+.newAuditButton { gap: 8px; }
+.newBoatForm { display: grid; grid-template-columns: 1fr 1fr auto auto; gap: 8px; margin-bottom: 18px; padding: 16px; border: 1px solid #bdcad6; border-radius: 8px; background: #fbfdff; }
+.newBoatForm input { min-width: 0; min-height: 40px; border: 1px solid #bdcad6; border-radius: 6px; padding: 0 11px; color: #0b2d49; background: #fff; }
+.newBoatForm .secondaryButton { border-color: #bdcad6; background: #fff; color: #0b2d49; }
+.summary { margin-bottom: 12px; color: #526477; font: 12px/1.4 "Courier New", monospace; }
+.alert { margin-bottom: 14px; border: 1px solid #d7aaa5; border-radius: 7px; padding: 11px 13px; background: #fff0ed; color: #8f2118; }
+.boatList { border: 1px solid #bdcad6; border-radius: 8px; overflow: hidden; background: #fbfdff; box-shadow: 0 3px 12px rgba(24, 35, 45, .1); }
+.boatCard + .boatCard { border-top: 1px solid #d5dfe8; }
+.boatCard a { display: grid; grid-template-columns: 150px 1fr auto; align-items: center; gap: 16px; padding: 18px; color: inherit; text-decoration: none; }
+.boatCard a:hover { background: #f0f5f9; }
+.boatCard strong { font: 800 24px/1 Georgia, serif; }
+.boatCard span { color: #394b5c; font-size: 14px; }
+.boatCard small { color: #526477; font-size: 12px; }
+.empty { padding: 32px 18px; color: #526477; text-align: center; }
 
 @media (max-width: 680px) {
-  .headerInner {
-    gap: 12px;
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-
-  .main {
-    padding-top: 36px;
-  }
-
-  .brand {
-    font-size: 13px;
-    letter-spacing: 0.12em;
-  }
-
-  .headerButton {
-    flex: 0 0 auto;
-    padding: 0 11px;
-  }
+  .registerPage { width: min(100% - 24px, 920px); }
+  .topbar { align-items: flex-start; flex-direction: column; padding: 12px 0; }
+  .topbarActions { width: 100%; justify-content: space-between; }
+  .hero { align-items: center; padding-top: 36px; }
+  .newBoatForm { grid-template-columns: 1fr 1fr; }
+  .newBoatForm input { grid-column: 1 / -1; }
+  .boatCard a { grid-template-columns: 1fr; gap: 7px; }
 }
