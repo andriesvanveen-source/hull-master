@@ -1,11 +1,12 @@
 # Hull Master
 
-Hull Master is a single Next.js application containing four independent tools:
+Hull Master is a single Next.js application containing five independent tools:
 
 - `/commissioning` — commissioning defect log and PDF/Excel exports
 - `/pdf-signoff` — R&C sign-off table PDF processor
 - `/harbour-audit` — harbour audit and photo report tool
 - `/stock-codes` — local-first stock-code catalogue with Supabase photo storage
+- `/quality-control` — Quality Control landing page with the standards manual and consolidated audit workbook
 
 ## Requirements
 

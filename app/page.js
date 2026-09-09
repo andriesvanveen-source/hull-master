@@ -6,7 +6,8 @@ const apps = [
   { href: "/commissioning", title: "Commissioning", icon: "HM" },
   { href: "/pdf-signoff", title: "PDF Sign-off Table", icon: "PDF" },
   { href: "/harbour-audit", title: "Harbour Audit Buddy", icon: "HA" },
-  { href: "/stock-codes", title: "Stock Codes", icon: "SC" }
+  { href: "/stock-codes", title: "Stock Codes", icon: "SC" },
+  { href: "/quality-control", title: "Quality Control", icon: "QC" }
 ];
 
 export default function HomePage() {
