@@ -43,17 +43,7 @@
   line-height: 1;
 }
 
-.manualActions,
-.cardActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.headerButton,
-.headerButtonSecondary,
-.primaryAction,
-.secondaryAction {
+.headerButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -65,18 +55,10 @@
   font-weight: 800;
 }
 
-.headerButton,
-.primaryAction {
+.headerButton {
   border: 1px solid #0b2d49;
   background: #0b2d49;
   color: #fff;
-}
-
-.headerButtonSecondary,
-.secondaryAction {
-  border: 1px solid #9eb0c2;
-  background: rgba(255, 255, 255, 0.72);
-  color: #0b2d49;
 }
 
 .main {
@@ -114,13 +96,6 @@
   font-size: 17px;
 }
 
-.resources {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.card,
 .emptyState {
   border: 1px solid rgba(158, 176, 194, 0.72);
   border-radius: 10px;
@@ -128,25 +103,11 @@
   box-shadow: 0 10px 28px rgba(11, 45, 73, 0.07);
 }
 
-.card {
-  padding: 22px;
-}
-
-.cardTag {
-  color: #4b78a6;
-  font-family: "Courier New", Courier, monospace;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-}
-
-.card h2,
 .emptyState h2 {
   margin: 10px 0 8px;
   font-size: 21px;
 }
 
-.card p,
 .emptyState p {
   margin: 0 0 18px;
   color: #526477;
@@ -175,23 +136,22 @@
 
 @media (max-width: 680px) {
   .headerInner {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .manualActions {
-    width: 100%;
-  }
-
-  .manualActions a {
-    flex: 1;
+    gap: 12px;
+    padding-left: 16px;
+    padding-right: 16px;
   }
 
   .main {
     padding-top: 36px;
   }
 
-  .resources {
-    grid-template-columns: 1fr;
+  .brand {
+    font-size: 13px;
+    letter-spacing: 0.12em;
+  }
+
+  .headerButton {
+    flex: 0 0 auto;
+    padding: 0 11px;
   }
 }
