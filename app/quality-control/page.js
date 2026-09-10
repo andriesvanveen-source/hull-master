@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import HomeBackButton from "../components/HomeBackButton";
 import styles from "./qualityControl.module.css";
 import { exportQualityWorkbook } from "./qualityControlExport";
-import { QUALITY_BOAT_MODELS, clearDeletedQualityBoat, createQualityBoat, loadQualityState, markQualityBoatSynced, mergeQualityStates } from "./qualityControlStorage";
+import { QUALITY_BOAT_MODELS, clearDeletedQualityBoat, createQualityBoat, hydrateQualityReferenceAudits, loadQualityState, markQualityBoatSynced, mergeQualityStates } from "./qualityControlStorage";
 import { deleteSharedQualityBoat, loadSharedQualityBoats, subscribeToQualityControlChanges, syncQualityBoat } from "../../lib/qualityControlSupabase";
 
 export default function QualityControlPage() {
@@ -36,8 +36,10 @@ export default function QualityControlPage() {
         }
         for (const boat of current.boats.filter((entry) => entry.pendingSync)) {
           const matchingRemote = remoteBoats.find((entry) => entry.id === boat.id);
-          const untouchedSeed = boat.id.startsWith("qc-reference-") && boat.areas.length === 0 && boat.defects.length === 0 && matchingRemote;
-          if (!untouchedSeed) await syncQualityBoat(boat);
+          const remoteAreaNames = new Set(matchingRemote?.areas || []);
+          const remoteDefectIds = new Set((matchingRemote?.defects || []).map((defect) => defect.id));
+          const alreadyStored = matchingRemote && boat.areas.every((area) => remoteAreaNames.has(area)) && boat.defects.every((defect) => remoteDefectIds.has(defect.id));
+          if (!alreadyStored) await syncQualityBoat(boat);
           current = markQualityBoatSynced(boat.id);
         }
         const merged = mergeQualityStates(current, await loadSharedQualityBoats(), { remoteComplete: true });
@@ -46,7 +48,18 @@ export default function QualityControlPage() {
         if (mounted) { setState(loadQualityState()); setSyncStatus("Saved locally — waiting to sync"); setError(loadError.message || "Run the Quality Control Supabase SQL to enable sharing."); }
       } finally { refreshing = false; }
     }
-    refresh();
+    async function bootstrap() {
+      if ((loadQualityState().referenceDataVersion || 0) < 1) {
+        try {
+          const response = await fetch("/quality-control/reference-audits.json");
+          if (!response.ok) throw new Error("Reference audits could not be loaded.");
+          const hydrated = hydrateQualityReferenceAudits(await response.json());
+          if (mounted) setState(hydrated);
+        } catch { /* Existing local audits remain available. */ }
+      }
+      await refresh();
+    }
+    bootstrap();
     const unsubscribe = subscribeToQualityControlChanges(refresh);
     return () => { mounted = false; unsubscribe(); };
   }, []);

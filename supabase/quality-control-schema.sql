@@ -27,9 +27,20 @@ create table if not exists public.quality_control_defects (
   code smallint check (code between 1 and 10),
   discipline text not null default '',
   concern boolean not null default false,
+  repaired_by text not null default '',
+  repaired_date text not null default '',
+  team_leader_check text not null default '',
+  qc_rwk text not null default '',
+  qc_acc text not null default '',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.quality_control_defects add column if not exists repaired_by text not null default '';
+alter table public.quality_control_defects add column if not exists repaired_date text not null default '';
+alter table public.quality_control_defects add column if not exists team_leader_check text not null default '';
+alter table public.quality_control_defects add column if not exists qc_rwk text not null default '';
+alter table public.quality_control_defects add column if not exists qc_acc text not null default '';
 
 create index if not exists quality_control_boats_model_idx on public.quality_control_boats(model, name);
 create index if not exists quality_control_areas_boat_idx on public.quality_control_areas(boat_id, sort_order);

@@ -5,6 +5,7 @@ export const QUALITY_CODE_DISCIPLINES = { 1: "Gelcoat", 2: "Flowcoat", 3: "Joine
 export const QUALITY_BOAT_MODELS = ["B5", "B8", "B9", "C1", "C2", "C5"];
 export const QUALITY_REFERENCE_BOATS = ["B5152", "B5153", "B5154", "B5155", "B5156", "B8126", "B8127", "B8128", "B8129", "B8130", "B9074", "B9075", "B9076", "B9077", "B9078", "C1071", "C1073", "C1074", "C1075", "C1076", "C2022", "C2023", "C2024", "C2025", "C2026", "C5001", "C5002", "C5003", "C5004", "C5005"];
 const REFERENCE_SEED_VERSION = 1;
+const REFERENCE_DATA_VERSION = 1;
 
 function makeId(prefix = "qc") { return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`; }
 function createReferenceBoat(name) { const now = new Date().toISOString(); return { id: `qc-reference-${name.toLowerCase()}`, name, model: name.slice(0, 2), areas: [], areaInspectors: {}, completedAreas: [], defects: [], pendingSync: true, createdAt: now, updatedAt: now }; }
@@ -34,6 +35,27 @@ export function loadQualityState() {
   return saveQualityState(migrateQualityState({ boats: [] }));
 }
 export function saveQualityState(state) { window.localStorage.setItem(QUALITY_STORAGE_KEY, JSON.stringify(state)); return state; }
+export function hydrateQualityReferenceAudits(referenceAudits) {
+  const state = loadQualityState();
+  if ((state.referenceDataVersion || 0) >= REFERENCE_DATA_VERSION) return state;
+  const byId = new Map(state.boats.map((boat) => [boat.id, boat]));
+  (referenceAudits || []).forEach((reference) => {
+    const existing = byId.get(reference.id);
+    if (!existing) { byId.set(reference.id, { ...reference, pendingSync: true }); return; }
+    const existingDefectIds = new Set((existing.defects || []).map((defect) => defect.id));
+    byId.set(reference.id, {
+      ...reference,
+      ...existing,
+      model: reference.model,
+      areas: [...new Set([...(reference.areas || []), ...(existing.areas || [])])],
+      areaInspectors: { ...(reference.areaInspectors || {}), ...(existing.areaInspectors || {}) },
+      defects: [...(reference.defects || []).filter((defect) => !existingDefectIds.has(defect.id)), ...(existing.defects || [])],
+      pendingSync: true,
+      updatedAt: new Date().toISOString()
+    });
+  });
+  return saveQualityState({ ...state, boats: [...byId.values()].sort((a, b) => a.name.localeCompare(b.name)), referenceDataVersion: REFERENCE_DATA_VERSION });
+}
 export function createQualityBoat(name) {
   const state = loadQualityState();
   const now = new Date().toISOString();
