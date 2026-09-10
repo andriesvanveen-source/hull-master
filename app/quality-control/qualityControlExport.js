@@ -1,6 +1,6 @@
 "use client";
 
-const QUALITY_CODE_KEY = "1 Exterior · 2 Lockers · 3 Carpentry · 4 Deckfitting · 5 Plumbing · 6 Mechanical · 7 Electrical · 8 Perspex · 9 Spray Painting · 10 Cleaning";
+const QUALITY_CODE_KEY = "1 Gelcoat · 2 Flowcoat · 3 Joinery/Carp · 4 Deckfitting · 5 Plumbing · 6 Mechanical · 7 Electrical · 8 Perspex/Windows · 9 Spray Painting · 10 Cleaning";
 
 function downloadBlob(blob, fileName) {
   const url = URL.createObjectURL(blob);
