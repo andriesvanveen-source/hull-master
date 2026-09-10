@@ -148,7 +148,7 @@ export default function QualityBoatPage({ params }) {
                       <td><input value={defect.item} onChange={(event) => updateDefect(defect.id, "item", event.target.value)} /></td>
                       <td><input value={defect.failure} onChange={(event) => updateDefect(defect.id, "failure", event.target.value)} /></td>
                       <td><textarea value={defect.description} onChange={(event) => updateDefect(defect.id, "description", event.target.value)} /></td>
-                      <td><input className={styles.codeInput} inputMode="numeric" value={defect.code} onChange={(event) => updateDefect(defect.id, "code", event.target.value)} aria-label={`Code for ${defect.item}`} /></td><td>{defect.discipline}</td>
+                      <td><select className={styles.codeInput} value={defect.code || ""} onChange={(event) => updateDefect(defect.id, "code", event.target.value)} aria-label={`Code for ${defect.item}`}><option value="">–</option>{Array.from({ length: 10 }, (_, index) => index + 1).map((code) => <option key={code} value={code}>{code}</option>)}</select></td><td>{defect.discipline}</td>
                     </tr>
                   ))}
                   <tr className={styles.draftRow}>
