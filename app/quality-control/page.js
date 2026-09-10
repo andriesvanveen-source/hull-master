@@ -141,10 +141,11 @@ export default function QualityControlPage() {
             <div className={styles.empty}>No audits yet. Start a new audit to log defects.</div>
           ) : visibleBoats.length === 0 ? <div className={styles.empty}>No {selectedModel} boats found.</div> : visibleBoats.map((boat) => (
             <article className={styles.boatCard} key={boat.id}>
-              <Link href={`/quality-control/boats/${boat.id}`}>
+              <Link className={styles.boatAuditLink} href={`/quality-control/boats/${boat.id}`}>
                 <strong>{boat.name}</strong>
                 <span>{boat.defects.length} {boat.defects.length === 1 ? "defect" : "defects"} · {boat.defects.filter((defect) => defect.concern).length} {boat.defects.filter((defect) => defect.concern).length === 1 ? "concern" : "concerns"}</span>
               </Link>
+              <Link className={styles.qcUpdateButton} href={`/quality-control/boats/${boat.id}/update`}>QC Update</Link>
             </article>
           ))}
         </section>
