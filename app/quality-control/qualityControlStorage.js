@@ -1,7 +1,7 @@
 "use client";
 
 export const QUALITY_STORAGE_KEY = "hull-master:quality-control:v1";
-export const QUALITY_CODE_DISCIPLINES = { 1: "Exterior", 2: "Lockers", 3: "Saloon", 4: "Deckfitting", 5: "Plumbing", 6: "Mechanical", 7: "Electrical", 8: "Perspex", 9: "Spray Painting", 10: "Cleaning" };
+export const QUALITY_CODE_DISCIPLINES = { 1: "Exterior", 2: "Lockers", 3: "Carpentry", 4: "Deckfitting", 5: "Plumbing", 6: "Mechanical", 7: "Electrical", 8: "Perspex", 9: "Spray Painting", 10: "Cleaning" };
 
 const sampleAreas = {
   Saloon: [["Drawer Locker", "Operational Defect", "Drawer does not close smoothly", 3], ["Nav Desk", "Loose", "Nav desk lid hinge is loose", 3], ["Galley Lockers", "Misaligned", "Locker doors are stepping", 3], ["Floor", "Sealing Defect", "Floor joint requires sealing", 3], ["Window Surround", "Scratched / Chafing", "Scratch on window surround", 1]],
@@ -21,7 +21,7 @@ function createSampleBoat() {
 export function loadQualityState() {
   try {
     const saved = JSON.parse(window.localStorage.getItem(QUALITY_STORAGE_KEY) || "null");
-    if (Array.isArray(saved?.boats)) return { ...saved, boats: saved.boats.map((boat) => ({ ...boat, areaInspectors: boat.areaInspectors || {} })) };
+    if (Array.isArray(saved?.boats)) return { ...saved, boats: saved.boats.map((boat) => ({ ...boat, areaInspectors: boat.areaInspectors || {}, defects: (boat.defects || []).map((defect) => ({ ...defect, discipline: QUALITY_CODE_DISCIPLINES[Number(defect.code)] || defect.discipline || "" })) })) };
   } catch { window.localStorage.removeItem(QUALITY_STORAGE_KEY); }
   return saveQualityState({ boats: [createSampleBoat()] });
 }

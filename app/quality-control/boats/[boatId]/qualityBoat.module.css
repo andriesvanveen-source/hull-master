@@ -47,7 +47,27 @@
   .page { width: min(100% - 20px, 1180px); padding-top: 10px; }
   .nav { align-items: flex-start; }.actions { gap: 5px; }.actions button { min-height: 34px; padding: 0 10px; }
   .auditHeader { grid-template-columns: 1fr; gap: 12px; }.auditHeader p { margin: 0; }
-  .tableWrap { margin: 0 -10px; border-left: 0; border-right: 0; border-radius: 0; }
+  .tableWrap { margin: 0; overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+  .auditTable, .auditTable tbody, .auditTable tr, .auditTable td { display: block; width: 100%; }
+  .auditTable { min-width: 0; table-layout: auto; }
+  .auditTable thead { display: none; }
+  .auditTable tr:not(.areaRow) { margin-bottom: 14px; overflow: hidden; border: 1px solid #bdcad6; border-radius: 8px; background: #fbfdff; box-shadow: 0 2px 7px rgba(24, 35, 45, .08); }
+  .auditTable tr:not(.areaRow) td { position: relative; min-height: 52px; border-right: 0; }
+  .auditTable tr:not(.areaRow) td:not(:first-child)::before { display: block; padding: 8px 10px 0; color: #526477; font: 700 10px/1 "Courier New", monospace; letter-spacing: .1em; text-transform: uppercase; }
+  .auditTable tr:not(.areaRow) td:nth-child(2)::before { content: "Concern"; }
+  .auditTable tr:not(.areaRow) td:nth-child(3)::before { content: "Item / Part / Subcomponent"; }
+  .auditTable tr:not(.areaRow) td:nth-child(4)::before { content: "Failure"; }
+  .auditTable tr:not(.areaRow) td:nth-child(5)::before { content: "Description"; }
+  .auditTable tr:not(.areaRow) td:nth-child(6)::before { content: "Code"; }
+  .auditTable tr:not(.areaRow) td:nth-child(7)::before { content: "Discipline"; }
+  .auditTable input, .auditTable textarea, .auditTable select { min-height: 48px; font-size: 16px; }
+  .auditTable tr:not(.areaRow) td:nth-child(7) { padding: 0 10px 12px; }
+  .remove { min-height: 36px; text-align: right; padding-right: 12px; }
+  .concern { text-align: left; }
+  .concern input { width: 1px; min-height: 0; }
+  .draftRow td:nth-child(-n+2) { display: none; }
+  .auditTable .draftRow td:nth-child(7)::before { display: none; }
+  .draftRow .add { width: calc(100% - 20px); margin: 10px; }
   .areaRow td > div { align-items: flex-start; flex-direction: column; }
   .areaRow .areaControls { width: 100%; justify-content: flex-start; }
   .areaRow .inspectorField { align-items: flex-start; flex-direction: column; width: 100%; }

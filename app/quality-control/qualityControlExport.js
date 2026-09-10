@@ -1,5 +1,7 @@
 "use client";
 
+const QUALITY_CODE_KEY = "1 Exterior · 2 Lockers · 3 Carpentry · 4 Deckfitting · 5 Plumbing · 6 Mechanical · 7 Electrical · 8 Perspex · 9 Spray Painting · 10 Cleaning";
+
 function downloadBlob(blob, fileName) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -19,7 +21,8 @@ export async function exportQualityExcel(boat) {
   const headers = ["No", "Concerns", "Code", "Item/Part /sub component", "Failure", "Description", "Repaired by", "Repaired Date", "TL/BM CHECK", "QC", ""];
   sheet.addRow(["QUALITY CONTROL AUDIT", boat.name]);
   sheet.addRow(["Exported", new Date()]);
-  sheet.addRow([]);
+  sheet.addRow(["Code key", QUALITY_CODE_KEY]);
+  sheet.mergeCells("B3:K3");
   sheet.addRow(headers);
   sheet.addRow(["", "", "", "", "", "", "", "", "", "RWK", "ACC"]);
   sheet.mergeCells("A4:A5"); sheet.mergeCells("B4:B5"); sheet.mergeCells("C4:C5"); sheet.mergeCells("D4:D5"); sheet.mergeCells("E4:E5"); sheet.mergeCells("F4:F5"); sheet.mergeCells("G4:G5"); sheet.mergeCells("H4:H5"); sheet.mergeCells("I4:I5"); sheet.mergeCells("J4:K4");
@@ -37,6 +40,8 @@ export async function exportQualityExcel(boat) {
   });
   sheet.columns = [7, 11, 8, 31, 22, 54, 18, 18, 18, 18, 18].map((width) => ({ width }));
   [4, 5].forEach((rowNumber) => { sheet.getRow(rowNumber).font = { bold: true, color: { argb: "FFFFFFFF" } }; sheet.getRow(rowNumber).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0B2D49" } }; sheet.getRow(rowNumber).alignment = { vertical: "middle", horizontal: "center", wrapText: true }; });
+  sheet.getRow(3).font = { size: 9, color: { argb: "FF526477" } };
+  sheet.getRow(3).getCell(1).font = { size: 9, bold: true, color: { argb: "FF0B2D49" } };
   sheet.autoFilter = { from: "A4", to: `K${Math.max(5, sheet.rowCount)}` };
   sheet.views = [{ state: "frozen", ySplit: 5 }];
   sheet.eachRow((row, rowNumber) => {
@@ -69,8 +74,10 @@ export async function exportQualityPdf(boat) {
   doc.text(`Hull ${boat.name}`, 287, 12, { align: "right" });
   doc.setTextColor(20, 28, 34);
   doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+  doc.text(`Code key: ${QUALITY_CODE_KEY}`, 10, 26, { maxWidth: 277 });
   autoTable(doc, {
-    startY: 26,
+    startY: 33,
     head: [[{ content: "No", rowSpan: 2 }, { content: "Concerns", rowSpan: 2 }, { content: "Code", rowSpan: 2 }, { content: "Item/Part /sub component", rowSpan: 2 }, { content: "Failure", rowSpan: 2 }, { content: "Description", rowSpan: 2 }, { content: "Repaired by", rowSpan: 2 }, { content: "Repaired Date", rowSpan: 2 }, { content: "TL/BM CHECK", rowSpan: 2 }, { content: "QC", colSpan: 2 }], ["RWK", "ACC"]],
     body: rows,
     theme: "grid",
