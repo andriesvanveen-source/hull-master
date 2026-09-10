@@ -66,6 +66,16 @@
   .addArea { padding: 0 4px; }
 }
 
+@media (pointer: coarse) {
+  .tableWrap {
+    overflow: visible;
+    -webkit-overflow-scrolling: auto;
+    overscroll-behavior: auto;
+    touch-action: auto;
+  }
+  .auditTable input, .auditTable textarea, .auditTable select, .auditTable button { touch-action: auto; }
+}
+
 @media print {
   @page { size: A4 landscape; margin: 8mm; }
   .shell { background: #fff; }.page { width: 100%; padding: 0; }.nav, .auditHeader, .tableWrap, .addArea { display: none !important; }
