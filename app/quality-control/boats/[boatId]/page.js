@@ -123,7 +123,6 @@ export default function QualityBoatPage({ params }) {
         <nav className={styles.nav}>
           <Link href="/quality-control">← All boats</Link>
           <div className={styles.actions}>
-            <button type="button" onClick={() => window.print()}>Print</button>
             <button type="button" onClick={() => exportQualityPdf(boat)}>PDF</button>
             <button type="button" onClick={() => exportQualityExcel(boat)}>Excel</button>
             <button type="button" className={styles.danger} onClick={deleteBoat}>Delete</button>
