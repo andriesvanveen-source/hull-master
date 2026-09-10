@@ -166,7 +166,7 @@ export function mergeQualityStates(localState, remoteBoats, options = {}) {
   (localState.boats || []).forEach((localBoat) => {
     const remoteBoat = merged.get(localBoat.id);
     const localIsNewer = new Date(localBoat.updatedAt || 0) >= new Date(remoteBoat?.updatedAt || 0);
-    if (localBoat.pendingSync || (!options.remoteComplete && (!remoteBoat || localIsNewer))) merged.set(localBoat.id, localBoat);
+    if (localBoat.pendingSync || (!options.remoteComplete && (!remoteBoat || (!options.preferRemote && localIsNewer)))) merged.set(localBoat.id, localBoat);
   });
   return saveQualityState({ ...localState, boats: [...merged.values()].sort(compareBoatsDescending) });
 }
