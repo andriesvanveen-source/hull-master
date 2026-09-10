@@ -22,6 +22,9 @@
 .areaRow td { padding: 0; background: #dfe8e3; }
 .areaRow td > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; }
 .areaRow span { display: flex; align-items: center; gap: 12px; font-size: 12px; }
+.areaRow .areaControls { flex-wrap: wrap; justify-content: flex-end; }
+.areaRow .inspectorField { display: flex; align-items: center; gap: 7px; color: #526477; font-weight: 700; }
+.areaRow .inspectorField input { width: 230px; min-height: 34px; border: 1px solid #aebdcb; border-radius: 6px; background: #fff; padding: 6px 9px; }
 .areaRow button { border: 0; background: transparent; color: #8f2118; font-weight: 700; cursor: pointer; }
 .remove { width: 100%; min-height: 44px; border: 0; background: transparent; color: #a0271e; font-size: 20px; cursor: pointer; }
 .code { padding: 13px 8px; text-align: center; font-weight: 900; }
@@ -36,6 +39,10 @@
   .nav { align-items: flex-start; }.actions { gap: 5px; }.actions button { min-height: 34px; padding: 0 10px; }
   .auditHeader { grid-template-columns: 1fr; gap: 12px; }.auditHeader p { margin: 0; }
   .tableWrap { margin: 0 -10px; border-left: 0; border-right: 0; border-radius: 0; }
+  .areaRow td > div { align-items: flex-start; flex-direction: column; }
+  .areaRow .areaControls { width: 100%; justify-content: flex-start; }
+  .areaRow .inspectorField { align-items: flex-start; flex-direction: column; width: 100%; }
+  .areaRow .inspectorField input { width: min(100%, 320px); }
 }
 
 @media print {

@@ -15,13 +15,13 @@ function makeId(prefix = "qc") { return `${prefix}-${Date.now()}-${Math.random()
 function createSampleBoat() {
   const now = new Date().toISOString();
   const defects = Object.entries(sampleAreas).flatMap(([area, rows]) => rows.map(([item, failure, description, code]) => ({ id: makeId("defect"), area, item, failure, description, code, discipline: QUALITY_CODE_DISCIPLINES[code], createdAt: now, updatedAt: now })));
-  return { id: "generic-quality-audit", name: "QC-DEMO-001", qualityController: "Generic User", areas: Object.keys(sampleAreas), completedAreas: [], defects, createdAt: now, updatedAt: now };
+  return { id: "generic-quality-audit", name: "QC-DEMO-001", qualityController: "Generic User", areas: Object.keys(sampleAreas), areaInspectors: {}, completedAreas: [], defects, createdAt: now, updatedAt: now };
 }
 
 export function loadQualityState() {
   try {
     const saved = JSON.parse(window.localStorage.getItem(QUALITY_STORAGE_KEY) || "null");
-    if (Array.isArray(saved?.boats)) return saved;
+    if (Array.isArray(saved?.boats)) return { ...saved, boats: saved.boats.map((boat) => ({ ...boat, areaInspectors: boat.areaInspectors || {} })) };
   } catch { window.localStorage.removeItem(QUALITY_STORAGE_KEY); }
   return saveQualityState({ boats: [createSampleBoat()] });
 }
@@ -29,7 +29,7 @@ export function saveQualityState(state) { window.localStorage.setItem(QUALITY_ST
 export function createQualityBoat(name, qualityController = "") {
   const state = loadQualityState();
   const now = new Date().toISOString();
-  state.boats.unshift({ id: makeId("boat"), name, qualityController, areas: [], completedAreas: [], defects: [], createdAt: now, updatedAt: now });
+  state.boats.unshift({ id: makeId("boat"), name, qualityController, areas: [], areaInspectors: {}, completedAreas: [], defects: [], createdAt: now, updatedAt: now });
   return saveQualityState(state);
 }
 export function updateQualityBoat(nextBoat) {
