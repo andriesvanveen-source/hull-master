@@ -100,6 +100,10 @@ export default function QualityControlPage() {
     finally { setIsExporting(false); }
   }
 
+  function openQualityUpdate(boatId) {
+    window.location.assign(`/quality-control/boats/${boatId}/update`);
+  }
+
   return (
     <div className={styles.shell}>
       <HomeBackButton />
@@ -145,7 +149,7 @@ export default function QualityControlPage() {
                 <strong>{boat.name}</strong>
                 <span>{boat.defects.length} {boat.defects.length === 1 ? "defect" : "defects"} · {boat.defects.filter((defect) => defect.concern).length} {boat.defects.filter((defect) => defect.concern).length === 1 ? "concern" : "concerns"}</span>
               </Link>
-              <Link className={styles.qcUpdateButton} href={`/quality-control/boats/${boat.id}/update`}>QC Update</Link>
+              <button className={styles.qcUpdateButton} type="button" onClick={() => openQualityUpdate(boat.id)}>QC Update</button>
             </article>
           ))}
         </section>

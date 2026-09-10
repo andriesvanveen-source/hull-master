@@ -40,5 +40,5 @@
   .newBoatForm { grid-template-columns: 1fr 1fr; }
   .newBoatForm input { grid-column: 1 / -1; }
   .boatAuditLink { grid-template-columns: 1fr; gap: 7px; padding-right: 10px; }
-  .qcUpdateButton { margin-right: 12px; }
+  .qcUpdateButton { min-height: 44px; margin-right: 12px; font-size: 16px; }
 }

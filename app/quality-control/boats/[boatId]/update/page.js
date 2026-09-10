@@ -97,7 +97,10 @@ export default function QualityUpdatePage() {
     <main className={styles.page}>
       <header className={styles.header}>
         <div><Link href="/quality-control">← All boats</Link><p>Quality update</p><h1>{boat.name}</h1></div>
-        <button type="button" onClick={copyMessage}>Copy</button>
+        <div className={styles.headerActions}>
+          <button className={styles.resetButton} type="button" onClick={() => setExcludedConcernIds([])} disabled={!excludedConcernIds.length}>Reset concerns</button>
+          <button type="button" onClick={copyMessage}>Copy</button>
+        </div>
       </header>
 
       {copyStatus ? <div className={styles.notice} role="status">{copyStatus}</div> : null}
