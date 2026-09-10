@@ -6,11 +6,75 @@ export const QUALITY_BOAT_MODELS = ["B5", "B8", "B9", "C1", "C2", "C5"];
 export const QUALITY_REFERENCE_BOATS = ["B5152", "B5153", "B5154", "B5155", "B5156", "B8126", "B8127", "B8128", "B8129", "B8130", "B9074", "B9075", "B9076", "B9077", "B9078", "C1071", "C1073", "C1074", "C1075", "C1076", "C2022", "C2023", "C2024", "C2025", "C2026", "C5001", "C5002", "C5003", "C5004", "C5005"];
 const REFERENCE_SEED_VERSION = 1;
 const REFERENCE_DATA_VERSION = 2;
+const QUALITY_DATABASE_NAME = "hull-master-quality-control";
+const QUALITY_DATABASE_VERSION = 1;
+const QUALITY_STORE_NAME = "state";
+const QUALITY_STATE_ID = "current";
+let cachedQualityState = null;
+let databasePromise = null;
+let pendingWrite = Promise.resolve();
 
 function makeId(prefix = "qc") { return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`; }
 function createReferenceBoat(name) { const now = new Date().toISOString(); return { id: `qc-reference-${name.toLowerCase()}`, name, model: name.slice(0, 2), areas: [], areaInspectors: {}, completedAreas: [], defects: [], pendingSync: false, deletedDefectIds: [], deletedAreaNames: [], createdAt: now, updatedAt: now }; }
 
 function compareBoatsDescending(a, b) { return String(b.name || "").localeCompare(String(a.name || ""), undefined, { numeric: true, sensitivity: "base" }); }
+
+function openQualityDatabase() {
+  if (databasePromise) return databasePromise;
+  databasePromise = new Promise((resolve, reject) => {
+    if (typeof window === "undefined" || !window.indexedDB) return reject(new Error("IndexedDB is unavailable."));
+    const request = window.indexedDB.open(QUALITY_DATABASE_NAME, QUALITY_DATABASE_VERSION);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(QUALITY_STORE_NAME)) request.result.createObjectStore(QUALITY_STORE_NAME);
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error("Could not open offline Quality Control storage."));
+  });
+  return databasePromise;
+}
+
+async function readIndexedQualityState() {
+  const database = await openQualityDatabase();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(QUALITY_STORE_NAME, "readonly");
+    const request = transaction.objectStore(QUALITY_STORE_NAME).get(QUALITY_STATE_ID);
+    request.onsuccess = () => resolve(request.result || null);
+    request.onerror = () => reject(request.error || new Error("Could not read offline Quality Control data."));
+  });
+}
+
+async function writeIndexedQualityState(state) {
+  const database = await openQualityDatabase();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(QUALITY_STORE_NAME, "readwrite");
+    transaction.objectStore(QUALITY_STORE_NAME).put(state, QUALITY_STATE_ID);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error || new Error("Could not save offline Quality Control data."));
+    transaction.onabort = () => reject(transaction.error || new Error("Offline Quality Control save was interrupted."));
+  });
+}
+
+function readLegacyQualityState() {
+  const rawState = window.localStorage.getItem(QUALITY_STORAGE_KEY);
+  try {
+    const saved = JSON.parse(rawState || "null");
+    return Array.isArray(saved?.boats) ? saved : null;
+  } catch {
+    if (rawState) {
+      try { window.localStorage.setItem(`${QUALITY_STORAGE_KEY}:recovery:${Date.now()}`, rawState); } catch { /* Keep the original key untouched if storage is full. */ }
+    }
+    return null;
+  }
+}
+
+async function persistQualityState(state) {
+  try {
+    await writeIndexedQualityState(state);
+  } catch (indexedError) {
+    try { window.localStorage.setItem(QUALITY_STORAGE_KEY, JSON.stringify(state)); }
+    catch { throw indexedError; }
+  }
+}
 
 function migrateQualityState(state) {
   const boats = (state.boats || []).filter((boat) => boat.id !== "generic-quality-audit").map((boat) => ({
@@ -29,17 +93,31 @@ function migrateQualityState(state) {
   return { ...state, boats, deletedBoatIds: state.deletedBoatIds || [], referenceSeedVersion: REFERENCE_SEED_VERSION };
 }
 
-export function loadQualityState() {
-  const rawState = window.localStorage.getItem(QUALITY_STORAGE_KEY);
-  try {
-    const saved = JSON.parse(rawState || "null");
-    if (Array.isArray(saved?.boats)) return saveQualityState(migrateQualityState(saved));
-  } catch {
-    if (rawState) window.localStorage.setItem(`${QUALITY_STORAGE_KEY}:recovery:${Date.now()}`, rawState);
+export async function initializeQualityState() {
+  if (cachedQualityState) return cachedQualityState;
+  const legacyState = readLegacyQualityState();
+  let indexedState = null;
+  try { indexedState = await readIndexedQualityState(); } catch { /* The legacy copy remains the fallback. */ }
+  cachedQualityState = migrateQualityState(indexedState || legacyState || { boats: [] });
+  await persistQualityState(cachedQualityState);
+  if (legacyState) {
+    try { window.localStorage.removeItem(QUALITY_STORAGE_KEY); } catch { /* IndexedDB already contains the migrated copy. */ }
   }
-  return saveQualityState(migrateQualityState({ boats: [] }));
+  return cachedQualityState;
 }
-export function saveQualityState(state) { window.localStorage.setItem(QUALITY_STORAGE_KEY, JSON.stringify(state)); return state; }
+export function loadQualityState() {
+  if (cachedQualityState) return cachedQualityState;
+  cachedQualityState = migrateQualityState(readLegacyQualityState() || { boats: [] });
+  return cachedQualityState;
+}
+export function saveQualityState(state) {
+  cachedQualityState = state;
+  const snapshot = typeof structuredClone === "function" ? structuredClone(state) : JSON.parse(JSON.stringify(state));
+  pendingWrite = pendingWrite.catch(() => {}).then(() => persistQualityState(snapshot));
+  void pendingWrite.catch(() => {});
+  return state;
+}
+export function flushQualityState() { return pendingWrite; }
 export function hydrateQualityReferenceAudits(referenceAudits) {
   const state = loadQualityState();
   if ((state.referenceDataVersion || 0) >= REFERENCE_DATA_VERSION) return state;

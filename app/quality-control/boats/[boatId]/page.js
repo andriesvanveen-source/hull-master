@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, use, useEffect, useMemo, useRef, useState } from "react";
 import styles from "./qualityBoat.module.css";
-import { clearDeletedQualityBoat, codeDiscipline, deleteQualityBoat, findQualityBoat, loadQualityState, markQualityBoatSynced, mergeQualityStates, newQualityDefect, updateQualityBoat } from "../../qualityControlStorage";
+import { clearDeletedQualityBoat, codeDiscipline, deleteQualityBoat, findQualityBoat, flushQualityState, initializeQualityState, loadQualityState, markQualityBoatSynced, mergeQualityStates, newQualityDefect, updateQualityBoat } from "../../qualityControlStorage";
 import { exportQualityExcel, exportQualityPdf } from "../../qualityControlExport";
 import { deleteSharedQualityBoat, loadSharedQualityBoat, subscribeToQualityControlChanges, syncQualityBoat } from "../../../../lib/qualityControlSupabase";
 
@@ -56,9 +56,6 @@ export default function QualityBoatPage({ params }) {
 
   useEffect(() => {
     let mounted = true;
-    const localBoat = findQualityBoat(boatId);
-    setBoat(localBoat);
-    setLoaded(true);
     fetch("/quality-control/area-common-defects.json").then((response) => response.json()).then(setCatalog).catch(() => setCatalog([]));
     async function refresh() {
       try {
@@ -72,7 +69,12 @@ export default function QualityBoatPage({ params }) {
         if (remote && mounted) { const merged = mergeQualityStates(loadQualityState(), [remote], { remoteComplete: true }); setBoat(merged.boats.find((entry) => entry.id === boatId) || null); }
       } catch { if (mounted) setMessage("Saved locally — waiting to sync"); }
     }
-    refresh();
+    initializeQualityState().then(() => {
+      if (!mounted) return;
+      setBoat(findQualityBoat(boatId));
+      setLoaded(true);
+      refresh();
+    }).catch(() => { if (mounted) { setBoat(findQualityBoat(boatId)); setLoaded(true); setMessage("Offline storage could not be opened"); } });
     const unsubscribe = subscribeToQualityControlChanges(refresh);
     return () => { mounted = false; window.clearTimeout(syncTimer.current); unsubscribe(); };
   }, [boatId]);
@@ -86,6 +88,7 @@ export default function QualityBoatPage({ params }) {
     window.clearTimeout(syncTimer.current);
     syncTimer.current = window.setTimeout(async () => {
       try {
+        await flushQualityState();
         await syncQualityBoat(saved);
         if (version === saveVersion.current) { markQualityBoatSynced(saved.id); setBoat({ ...findQualityBoat(saved.id) }); setMessage("All changes synced"); }
       } catch { setMessage("Saved locally — waiting to sync"); }

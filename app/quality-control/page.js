@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import HomeBackButton from "../components/HomeBackButton";
 import styles from "./qualityControl.module.css";
 import { exportQualityWorkbook } from "./qualityControlExport";
-import { QUALITY_BOAT_MODELS, clearDeletedQualityBoat, createQualityBoat, hydrateQualityReferenceAudits, loadQualityState, markQualityBoatSynced, mergeQualityStates } from "./qualityControlStorage";
+import { QUALITY_BOAT_MODELS, clearDeletedQualityBoat, createQualityBoat, flushQualityState, hydrateQualityReferenceAudits, initializeQualityState, loadQualityState, markQualityBoatSynced, mergeQualityStates } from "./qualityControlStorage";
 import { deleteSharedQualityBoat, loadSharedQualityBoats, subscribeToQualityControlChanges, syncQualityBoat } from "../../lib/qualityControlSupabase";
 
 export default function QualityControlPage() {
@@ -21,9 +21,6 @@ export default function QualityControlPage() {
   useEffect(() => {
     let mounted = true;
     let refreshing = false;
-    const localState = loadQualityState();
-    setState(localState);
-    setLoaded(true);
     async function refresh() {
       if (refreshing) return;
       refreshing = true;
@@ -50,6 +47,8 @@ export default function QualityControlPage() {
       } finally { refreshing = false; }
     }
     async function bootstrap() {
+      const localState = await initializeQualityState();
+      if (mounted) { setState(localState); setLoaded(true); }
       if ((loadQualityState().referenceDataVersion || 0) < 2) {
         try {
           const response = await fetch("/quality-control/reference-audits.json");
@@ -60,7 +59,13 @@ export default function QualityControlPage() {
       }
       await refresh();
     }
-    bootstrap();
+    bootstrap().catch((storageError) => {
+      if (!mounted) return;
+      setState(loadQualityState());
+      setLoaded(true);
+      setSyncStatus("Offline storage unavailable");
+      setError(storageError.message || "This browser could not open the Quality Control offline database.");
+    });
     const unsubscribe = subscribeToQualityControlChanges(refresh);
     return () => { mounted = false; unsubscribe(); };
   }, []);
@@ -84,7 +89,7 @@ export default function QualityControlPage() {
     setError("");
     setSyncStatus("Saved locally — syncing...");
     const boat = nextState.boats.find((entry) => entry.name === normalizedName);
-    syncQualityBoat(boat).then(() => { const synced = markQualityBoatSynced(boat.id); setState(synced); setSyncStatus("All audits synced"); }).catch((syncError) => { setSyncStatus("Saved locally — waiting to sync"); setError(syncError.message || "The new audit is safely stored locally and will retry syncing."); });
+    flushQualityState().then(() => syncQualityBoat(boat)).then(() => { const synced = markQualityBoatSynced(boat.id); setState(synced); setSyncStatus("All audits synced"); }).catch((syncError) => { setSyncStatus("Saved locally — waiting to sync"); setError(syncError.message || "The new audit is safely stored locally and will retry syncing."); });
   }
 
   async function exportVisibleBoats() {
