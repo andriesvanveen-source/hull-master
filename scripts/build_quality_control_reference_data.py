@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 WORKBOOK = ROOT / "public" / "quality-control" / "Quality Control Reference Workbook.xlsx"
 OUTPUT_JSON = ROOT / "public" / "quality-control" / "reference-audits.json"
 OUTPUT_SQL = ROOT / "supabase" / "quality-control-reference-data.sql"
+OUTPUT_SQL_PATTERN = "quality-control-reference-data-{model}.sql"
 DISCIPLINES = {1: "Gelcoat", 2: "Flowcoat", 3: "Joinery/Carp", 4: "Deckfitting", 5: "Plumbing", 6: "Mechanical", 7: "Electrical", 8: "Perspex/Windows", 9: "Spray Painting", 10: "Cleaning"}
 STAMP = "2026-09-10T00:00:00+00:00"
 
@@ -107,24 +108,30 @@ def build():
         })
     OUTPUT_JSON.write_text(json.dumps(audits, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
-    lines = ["-- Full historical Quality Control import generated from the 30 Audit worksheets.", "-- Idempotent and non-destructive: existing boat, area and defect records are not overwritten.", "begin;"]
-    for audit in audits:
-        lines.append(f"insert into public.quality_control_boats (id,name,model) values ({sql_text(audit['id'])},{sql_text(audit['name'])},{sql_text(audit['model'])}) on conflict (id) do nothing;")
-        for index, area in enumerate(audit["areas"]):
-            lines.append(f"insert into public.quality_control_areas (boat_id,area_name,sort_order) values ({sql_text(audit['id'])},{sql_text(area)},{index}) on conflict (boat_id,area_name) do nothing;")
-        for start in range(0, len(audit["defects"]), 200):
-            rows = []
-            for defect in audit["defects"][start:start + 200]:
-                rows.append("(" + ",".join([
-                    sql_text(defect["id"]), sql_text(audit["id"]), sql_text(defect["area"]), sql_text(defect["item"]),
-                    sql_text(defect["failure"]), sql_text(defect["description"]), str(defect["code"]),
-                    sql_text(defect["discipline"]), "true" if defect["concern"] else "false",
-                    sql_text(defect["repairedBy"]), sql_text(defect["repairedDate"]), sql_text(defect["teamLeaderCheck"]),
-                    sql_text(defect["qcRwk"]), sql_text(defect["qcAcc"])
-                ]) + ")")
-            lines.append("insert into public.quality_control_defects (id,boat_id,area_name,item,failure_mode,description,code,discipline,concern,repaired_by,repaired_date,team_leader_check,qc_rwk,qc_acc) values\n  " + ",\n  ".join(rows) + "\non conflict (id) do nothing;")
-    lines.extend(["commit;", "select count(*) as imported_quality_control_defects from public.quality_control_defects;"])
-    OUTPUT_SQL.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    def sql_for_audits(selected_audits, label):
+        lines = [f"-- Historical Quality Control import for {label}.", "-- Idempotent and non-destructive: existing boat, area and defect records are not overwritten.", "begin;"]
+        for audit in selected_audits:
+            lines.append(f"insert into public.quality_control_boats (id,name,model) values ({sql_text(audit['id'])},{sql_text(audit['name'])},{sql_text(audit['model'])}) on conflict (id) do nothing;")
+            for index, area in enumerate(audit["areas"]):
+                lines.append(f"insert into public.quality_control_areas (boat_id,area_name,sort_order) values ({sql_text(audit['id'])},{sql_text(area)},{index}) on conflict (boat_id,area_name) do nothing;")
+            for start in range(0, len(audit["defects"]), 200):
+                rows = []
+                for defect in audit["defects"][start:start + 200]:
+                    rows.append("(" + ",".join([
+                        sql_text(defect["id"]), sql_text(audit["id"]), sql_text(defect["area"]), sql_text(defect["item"]),
+                        sql_text(defect["failure"]), sql_text(defect["description"]), str(defect["code"]),
+                        sql_text(defect["discipline"]), "true" if defect["concern"] else "false",
+                        sql_text(defect["repairedBy"]), sql_text(defect["repairedDate"]), sql_text(defect["teamLeaderCheck"]),
+                        sql_text(defect["qcRwk"]), sql_text(defect["qcAcc"])
+                    ]) + ")")
+                lines.append("insert into public.quality_control_defects (id,boat_id,area_name,item,failure_mode,description,code,discipline,concern,repaired_by,repaired_date,team_leader_check,qc_rwk,qc_acc) values\n  " + ",\n  ".join(rows) + "\non conflict (id) do nothing;")
+        lines.extend(["commit;", "select count(*) as imported_quality_control_defects from public.quality_control_defects;"])
+        return "\n".join(lines) + "\n"
+
+    OUTPUT_SQL.write_text("-- This import was split to fit the Supabase SQL Editor.\n-- Run quality-control-reference-data-B5.sql, B8.sql, B9.sql, C1.sql, C2.sql and C5.sql instead.\n", encoding="utf-8")
+    for model in ["B5", "B8", "B9", "C1", "C2", "C5"]:
+        selected = [audit for audit in audits if audit["model"] == model]
+        (OUTPUT_SQL.parent / OUTPUT_SQL_PATTERN.format(model=model)).write_text(sql_for_audits(selected, f"{model} boats"), encoding="utf-8")
     print(f"Generated {len(audits)} audits and {sum(len(a['defects']) for a in audits)} defects")
 
 
