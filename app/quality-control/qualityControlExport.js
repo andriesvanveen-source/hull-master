@@ -13,10 +13,7 @@ function downloadBlob(blob, fileName) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export async function exportQualityExcel(boat) {
-  const ExcelJS = (await import("exceljs")).default;
-  const workbook = new ExcelJS.Workbook();
-  workbook.creator = "Hull Master Quality Control";
+function addQualityWorksheet(workbook, boat) {
   const sheet = workbook.addWorksheet(String(boat.name || "Quality Audit").slice(0, 31));
   const headers = ["No", "Concerns", "Code", "Item/Part /sub component", "Failure", "Description", "Repaired by", "Repaired Date", "TL/BM CHECK", "QC", ""];
   sheet.addRow(["QUALITY CONTROL AUDIT", boat.name]);
@@ -48,8 +45,24 @@ export async function exportQualityExcel(boat) {
     if (rowNumber > 5) row.alignment = { vertical: "top", wrapText: true };
     row.eachCell((cell) => { cell.border = { bottom: { style: "thin", color: { argb: "FFD5DFE8" } } }; });
   });
+}
+
+export async function exportQualityExcel(boat) {
+  const ExcelJS = (await import("exceljs")).default;
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "Hull Master Quality Control";
+  addQualityWorksheet(workbook, boat);
   const buffer = await workbook.xlsx.writeBuffer();
   downloadBlob(new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `${boat.name}-quality-audit.xlsx`);
+}
+
+export async function exportQualityWorkbook(boats, fileName = "Quality Control Audits.xlsx") {
+  const ExcelJS = (await import("exceljs")).default;
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "Hull Master Quality Control";
+  boats.forEach((boat) => addQualityWorksheet(workbook, boat));
+  const buffer = await workbook.xlsx.writeBuffer();
+  downloadBlob(new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), fileName);
 }
 
 export async function exportQualityPdf(boat) {

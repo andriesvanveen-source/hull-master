@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import HomeBackButton from "../components/HomeBackButton";
 import styles from "./qualityControl.module.css";
-import { createQualityBoat, loadQualityState } from "./qualityControlStorage";
+import { exportQualityWorkbook } from "./qualityControlExport";
+import { QUALITY_BOAT_MODELS, clearDeletedQualityBoat, createQualityBoat, loadQualityState, markQualityBoatSynced, mergeQualityStates } from "./qualityControlStorage";
+import { deleteSharedQualityBoat, loadSharedQualityBoats, subscribeToQualityControlChanges, syncQualityBoat } from "../../lib/qualityControlSupabase";
 
 export default function QualityControlPage() {
   const [state, setState] = useState({ boats: [] });
@@ -12,27 +14,71 @@ export default function QualityControlPage() {
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
   const [error, setError] = useState("");
+  const [syncStatus, setSyncStatus] = useState("Loading saved audits...");
+  const [selectedModel, setSelectedModel] = useState("all");
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
-    setState(loadQualityState());
+    let mounted = true;
+    let refreshing = false;
+    const localState = loadQualityState();
+    setState(localState);
     setLoaded(true);
+    async function refresh() {
+      if (refreshing) return;
+      refreshing = true;
+      try {
+        let current = loadQualityState();
+        const remoteBoats = await loadSharedQualityBoats();
+        for (const boatId of current.deletedBoatIds || []) {
+          await deleteSharedQualityBoat(boatId);
+          current = clearDeletedQualityBoat(boatId);
+        }
+        for (const boat of current.boats.filter((entry) => entry.pendingSync)) {
+          const matchingRemote = remoteBoats.find((entry) => entry.id === boat.id);
+          const untouchedSeed = boat.id.startsWith("qc-reference-") && boat.areas.length === 0 && boat.defects.length === 0 && matchingRemote;
+          if (!untouchedSeed) await syncQualityBoat(boat);
+          current = markQualityBoatSynced(boat.id);
+        }
+        const merged = mergeQualityStates(current, await loadSharedQualityBoats(), { remoteComplete: true });
+        if (mounted) { setState(merged); setSyncStatus("All audits synced"); setError(""); }
+      } catch (loadError) {
+        if (mounted) { setState(loadQualityState()); setSyncStatus("Saved locally — waiting to sync"); setError(loadError.message || "Run the Quality Control Supabase SQL to enable sharing."); }
+      } finally { refreshing = false; }
+    }
+    refresh();
+    const unsubscribe = subscribeToQualityControlChanges(refresh);
+    return () => { mounted = false; unsubscribe(); };
   }, []);
 
   const defectCount = useMemo(
     () => state.boats.reduce((total, boat) => total + boat.defects.length, 0),
     [state.boats]
   );
+  const visibleBoats = useMemo(() => selectedModel === "all" ? state.boats : state.boats.filter((boat) => (boat.model || boat.name.slice(0, 2)) === selectedModel), [selectedModel, state.boats]);
 
   function addBoat(event) {
     event.preventDefault();
     const normalizedName = name.trim().toUpperCase();
     if (!normalizedName) return setError("Enter a hull number.");
+    if (!QUALITY_BOAT_MODELS.includes(normalizedName.slice(0, 2))) return setError("Use a B5, B8, B9, C1, C2 or C5 hull number.");
     if (state.boats.some((boat) => boat.name === normalizedName)) return setError(`${normalizedName} already exists.`);
     const nextState = createQualityBoat(normalizedName);
     setState(nextState);
     setName("");
     setShowForm(false);
     setError("");
+    setSyncStatus("Saved locally — syncing...");
+    const boat = nextState.boats.find((entry) => entry.name === normalizedName);
+    syncQualityBoat(boat).then(() => { const synced = markQualityBoatSynced(boat.id); setState(synced); setSyncStatus("All audits synced"); }).catch((syncError) => { setSyncStatus("Saved locally — waiting to sync"); setError(syncError.message || "The new audit is safely stored locally and will retry syncing."); });
+  }
+
+  async function exportVisibleBoats() {
+    if (!visibleBoats.length) return setError("There are no boats in this filter to export.");
+    setIsExporting(true);
+    try { await exportQualityWorkbook(visibleBoats, `Quality Control - ${selectedModel === "all" ? "All boats" : selectedModel}.xlsx`); setError(""); }
+    catch (exportError) { setError(exportError.message || "Could not export the selected boats."); }
+    finally { setIsExporting(false); }
   }
 
   return (
@@ -61,11 +107,20 @@ export default function QualityControlPage() {
           </form>
         ) : null}
 
-        <div className={styles.summary}>Local browser storage · {defectCount} logged defects</div>
+        <div className={styles.modelFilter}>
+          <label htmlFor="qualityModelFilter">Model</label>
+          <select id="qualityModelFilter" value={selectedModel} onChange={(event) => setSelectedModel(event.target.value)}>
+            <option value="all">All boats</option>
+            {QUALITY_BOAT_MODELS.map((model) => <option key={model} value={model}>{model}</option>)}
+          </select>
+          <button type="button" onClick={exportVisibleBoats} disabled={isExporting || !visibleBoats.length}>{isExporting ? "Exporting..." : "Export selected"}</button>
+        </div>
+
+        <div className={styles.summary}>{syncStatus} · {defectCount} logged defects</div>
         <section className={styles.boatList} aria-label="Quality Control boat audits">
           {!loaded ? <div className={styles.empty}>Loading audits...</div> : state.boats.length === 0 ? (
             <div className={styles.empty}>No audits yet. Start a new audit to log defects.</div>
-          ) : state.boats.map((boat) => (
+          ) : visibleBoats.length === 0 ? <div className={styles.empty}>No {selectedModel} boats found.</div> : visibleBoats.map((boat) => (
             <article className={styles.boatCard} key={boat.id}>
               <Link href={`/quality-control/boats/${boat.id}`}>
                 <strong>{boat.name}</strong>

@@ -13,6 +13,11 @@
 .newBoatForm { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; margin-bottom: 18px; padding: 16px; border: 1px solid #bdcad6; border-radius: 8px; background: #fbfdff; }
 .newBoatForm input { min-width: 0; min-height: 40px; border: 1px solid #bdcad6; border-radius: 6px; padding: 0 11px; color: #0b2d49; background: #fff; }
 .newBoatForm .secondaryButton { border-color: #bdcad6; background: #fff; color: #0b2d49; }
+.modelFilter { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.modelFilter label { color: #526477; font: 700 11px/1 "Courier New", monospace; letter-spacing: .14em; text-transform: uppercase; }
+.modelFilter select { min-width: 150px; min-height: 40px; border: 1px solid #bdcad6; border-radius: 6px; padding: 0 10px; background: #fff; color: #0b2d49; }
+.modelFilter button { min-height: 40px; border: 1px solid #0b2d49; border-radius: 7px; padding: 0 14px; background: #fff; color: #0b2d49; font-weight: 800; cursor: pointer; }
+.modelFilter button:disabled { opacity: .55; cursor: wait; }
 .summary { margin-bottom: 12px; color: #526477; font: 12px/1.4 "Courier New", monospace; }
 .alert { margin-bottom: 14px; border: 1px solid #d7aaa5; border-radius: 7px; padding: 11px 13px; background: #fff0ed; color: #8f2118; }
 .boatList { border: 1px solid #bdcad6; border-radius: 8px; overflow: hidden; background: #fbfdff; box-shadow: 0 3px 12px rgba(24, 35, 45, .1); }

@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Fragment, use, useEffect, useMemo, useState } from "react";
+import { Fragment, use, useEffect, useMemo, useRef, useState } from "react";
 import styles from "./qualityBoat.module.css";
-import { codeDiscipline, deleteQualityBoat, findQualityBoat, newQualityDefect, updateQualityBoat } from "../../qualityControlStorage";
+import { clearDeletedQualityBoat, codeDiscipline, deleteQualityBoat, findQualityBoat, loadQualityState, markQualityBoatSynced, mergeQualityStates, newQualityDefect, updateQualityBoat } from "../../qualityControlStorage";
 import { exportQualityExcel, exportQualityPdf } from "../../qualityControlExport";
+import { deleteSharedQualityBoat, loadSharedQualityBoat, subscribeToQualityControlChanges, syncQualityBoat } from "../../../../lib/qualityControlSupabase";
 
 function normalize(value) { return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(); }
 const QUALITY_INSPECTORS = ["Imran Majiet", "Imtiyaaz Hassan Hoosain", "Jodi Jackson", "Kyle Carl Adams", "Moegamat Saleem Philander", "Mogamat Yunis Jabaar", "Riyaaz Harold", "Sheldon Barends", "Zunaid Hoosen"];
@@ -50,15 +51,46 @@ export default function QualityBoatPage({ params }) {
   const [draftArea, setDraftArea] = useState("");
   const [drafts, setDrafts] = useState({});
   const [message, setMessage] = useState("");
+  const syncTimer = useRef(null);
+  const saveVersion = useRef(0);
 
   useEffect(() => {
-    setBoat(findQualityBoat(boatId));
+    let mounted = true;
+    const localBoat = findQualityBoat(boatId);
+    setBoat(localBoat);
     setLoaded(true);
     fetch("/quality-control/area-common-defects.json").then((response) => response.json()).then(setCatalog).catch(() => setCatalog([]));
+    async function refresh() {
+      try {
+        const current = findQualityBoat(boatId);
+        if (current?.pendingSync) {
+          await syncQualityBoat(current);
+          if (mounted) { markQualityBoatSynced(boatId); setBoat({ ...findQualityBoat(boatId) }); setMessage("All changes synced"); }
+          return;
+        }
+        const remote = await loadSharedQualityBoat(boatId);
+        if (remote && mounted) { const merged = mergeQualityStates(loadQualityState(), [remote]); setBoat(merged.boats.find((entry) => entry.id === boatId) || null); }
+      } catch { if (mounted) setMessage("Saved locally — waiting to sync"); }
+    }
+    refresh();
+    const unsubscribe = subscribeToQualityControlChanges(refresh);
+    return () => { mounted = false; window.clearTimeout(syncTimer.current); unsubscribe(); };
   }, [boatId]);
 
   const catalogAreas = useMemo(() => [...new Set(catalog.map((entry) => entry.area))].sort(), [catalog]);
-  function save(nextBoat) { const saved = updateQualityBoat(nextBoat); setBoat({ ...saved }); setMessage(""); }
+  function save(nextBoat) {
+    const saved = updateQualityBoat(nextBoat);
+    const version = ++saveVersion.current;
+    setBoat({ ...saved });
+    setMessage("Saved locally — syncing...");
+    window.clearTimeout(syncTimer.current);
+    syncTimer.current = window.setTimeout(async () => {
+      try {
+        await syncQualityBoat(saved);
+        if (version === saveVersion.current) { markQualityBoatSynced(saved.id); setBoat({ ...findQualityBoat(saved.id) }); setMessage("All changes synced"); }
+      } catch { setMessage("Saved locally — waiting to sync"); }
+    }, 650);
+  }
   function matchCode(values) {
     if (!values.item?.trim() && !values.failure?.trim() && !values.description?.trim()) return "";
     const candidates = catalog.map((entry) => ({ entry, score: scoreMatch(entry, values) })).filter((match) => match.score > 8).sort((a, b) => b.score - a.score);
@@ -110,6 +142,7 @@ export default function QualityBoatPage({ params }) {
   function deleteBoat() {
     if (!window.confirm(`Delete ${boat.name}? This local audit cannot be recovered.`)) return;
     deleteQualityBoat(boat.id);
+    deleteSharedQualityBoat(boat.id).then(() => clearDeletedQualityBoat(boat.id)).catch(() => {});
     router.push("/quality-control");
   }
 
