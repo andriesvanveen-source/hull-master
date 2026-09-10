@@ -35,7 +35,7 @@ export async function exportQualityExcel(boat) {
       number += 1;
     });
   });
-  sheet.columns = [7, 11, 8, 31, 22, 54, 19, 18, 18, 10, 10].map((width) => ({ width }));
+  sheet.columns = [7, 11, 8, 31, 22, 54, 18, 18, 18, 18, 18].map((width) => ({ width }));
   [4, 5].forEach((rowNumber) => { sheet.getRow(rowNumber).font = { bold: true, color: { argb: "FFFFFFFF" } }; sheet.getRow(rowNumber).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0B2D49" } }; sheet.getRow(rowNumber).alignment = { vertical: "middle", horizontal: "center", wrapText: true }; });
   sheet.autoFilter = { from: "A4", to: `K${Math.max(5, sheet.rowCount)}` };
   sheet.views = [{ state: "frozen", ySplit: 5 }];
@@ -76,7 +76,7 @@ export async function exportQualityPdf(boat) {
     theme: "grid",
     styles: { fontSize: 6.2, cellPadding: 1.2, valign: "middle", lineColor: [140, 150, 160], lineWidth: .2 },
     headStyles: { fillColor: [11, 45, 73], textColor: 255, fontStyle: "bold", halign: "center" },
-    columnStyles: { 0: { cellWidth: 8 }, 1: { cellWidth: 14, halign: "center" }, 2: { cellWidth: 10 }, 3: { cellWidth: 45 }, 4: { cellWidth: 29 }, 5: { cellWidth: 71 }, 6: { cellWidth: 24 }, 7: { cellWidth: 23 }, 8: { cellWidth: 24 }, 9: { cellWidth: 10 }, 10: { cellWidth: 10 } },
+    columnStyles: { 0: { cellWidth: 8 }, 1: { cellWidth: 14, halign: "center" }, 2: { cellWidth: 10 }, 3: { cellWidth: 42 }, 4: { cellWidth: 26 }, 5: { cellWidth: 67 }, 6: { cellWidth: 23 }, 7: { cellWidth: 23 }, 8: { cellWidth: 23 }, 9: { cellWidth: 23 }, 10: { cellWidth: 23 } },
     margin: { left: 7, right: 7, top: 15, bottom: 12 }
   });
   doc.save(`${boat.name}-quality-audit.pdf`);

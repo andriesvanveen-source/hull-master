@@ -58,5 +58,5 @@
   @page { size: A4 landscape; margin: 8mm; }
   .shell { background: #fff; }.page { width: 100%; padding: 0; }.nav, .auditHeader, .tableWrap, .addArea { display: none !important; }
   .printOnly { display: block; color: #111; }.printOnly h1 { margin: 0 0 4mm; font-size: 18pt; }.printOnly p { margin: 0 0 4mm; }
-  .printOnly table { width: 100%; border-collapse: collapse; font-size: 7pt; }.printOnly th, .printOnly td { border: .25mm solid #777; padding: 1.5mm; vertical-align: top; }.printOnly th { background: #dfe8e3; }.printArea td { background: #dfe8e3; font-weight: bold; }
+  .printOnly table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 7pt; }.printOnly th, .printOnly td { border: .25mm solid #777; padding: 1.5mm; vertical-align: top; }.printOnly th { background: #dfe8e3; }.printOnly th:nth-last-child(-n+5), .printOnly td:nth-last-child(-n+5) { width: 8.5%; }.printArea td { background: #dfe8e3; font-weight: bold; }
 }
