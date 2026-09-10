@@ -30,6 +30,7 @@ export default function QualityControlPage() {
       try {
         let current = loadQualityState();
         const remoteBoats = await loadSharedQualityBoats();
+        current = mergeQualityStates(current, remoteBoats, { remoteComplete: true });
         for (const boatId of current.deletedBoatIds || []) {
           await deleteSharedQualityBoat(boatId);
           current = clearDeletedQualityBoat(boatId);
@@ -43,13 +44,13 @@ export default function QualityControlPage() {
           current = markQualityBoatSynced(boat.id);
         }
         const merged = mergeQualityStates(current, await loadSharedQualityBoats(), { remoteComplete: true });
-        if (mounted) { setState(merged); setSyncStatus("All audits synced"); setError(""); }
+        if (mounted) { setState(merged); setSyncStatus(`Synced from Supabase: ${merged.boats.length} boats`); setError(""); }
       } catch (loadError) {
         if (mounted) { setState(loadQualityState()); setSyncStatus("Saved locally — waiting to sync"); setError(loadError.message || "Run the Quality Control Supabase SQL to enable sharing."); }
       } finally { refreshing = false; }
     }
     async function bootstrap() {
-      if ((loadQualityState().referenceDataVersion || 0) < 1) {
+      if ((loadQualityState().referenceDataVersion || 0) < 2) {
         try {
           const response = await fetch("/quality-control/reference-audits.json");
           if (!response.ok) throw new Error("Reference audits could not be loaded.");
@@ -68,7 +69,7 @@ export default function QualityControlPage() {
     () => state.boats.reduce((total, boat) => total + boat.defects.length, 0),
     [state.boats]
   );
-  const visibleBoats = useMemo(() => selectedModel === "all" ? state.boats : state.boats.filter((boat) => (boat.model || boat.name.slice(0, 2)) === selectedModel), [selectedModel, state.boats]);
+  const visibleBoats = useMemo(() => [...(selectedModel === "all" ? state.boats : state.boats.filter((boat) => (boat.model || boat.name.slice(0, 2)) === selectedModel))].sort((a, b) => String(b.name || "").localeCompare(String(a.name || ""), undefined, { numeric: true, sensitivity: "base" })), [selectedModel, state.boats]);
 
   function addBoat(event) {
     event.preventDefault();

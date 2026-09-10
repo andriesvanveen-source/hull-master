@@ -69,7 +69,7 @@ export default function QualityBoatPage({ params }) {
           return;
         }
         const remote = await loadSharedQualityBoat(boatId);
-        if (remote && mounted) { const merged = mergeQualityStates(loadQualityState(), [remote]); setBoat(merged.boats.find((entry) => entry.id === boatId) || null); }
+        if (remote && mounted) { const merged = mergeQualityStates(loadQualityState(), [remote], { remoteComplete: true }); setBoat(merged.boats.find((entry) => entry.id === boatId) || null); }
       } catch { if (mounted) setMessage("Saved locally — waiting to sync"); }
     }
     refresh();
