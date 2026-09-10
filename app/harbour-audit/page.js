@@ -95,6 +95,15 @@ function todayText() {
   }).format(new Date());
 }
 
+function auditDateTimestamp(audit) {
+  const dateText = String(audit.createdAt || "").trim();
+  const localDate = dateText.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+  if (localDate) return Date.UTC(Number(localDate[3]), Number(localDate[2]) - 1, Number(localDate[1]));
+  const parsedDate = Date.parse(dateText);
+  if (Number.isFinite(parsedDate)) return parsedDate;
+  return Date.parse(audit.updatedAt || "") || 0;
+}
+
 function uid() {
   return globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 }
@@ -522,9 +531,10 @@ export default function HomePage() {
     ...COMMISSIONING_ENGINEERS,
     ...audits.map((audit) => audit.auditor).filter(Boolean)
   ])].sort((a, b) => a.localeCompare(b)), [audits]);
-  const visibleAudits = useMemo(() => selectedAuditor === "all"
+  const visibleAudits = useMemo(() => [...(selectedAuditor === "all"
     ? audits
-    : audits.filter((audit) => audit.auditor === selectedAuditor), [audits, selectedAuditor]);
+    : audits.filter((audit) => audit.auditor === selectedAuditor))]
+    .sort((a, b) => auditDateTimestamp(b) - auditDateTimestamp(a)), [audits, selectedAuditor]);
 
   async function persistAndSync(nextAudits, changedAudit) {
     auditsRef.current = nextAudits;
