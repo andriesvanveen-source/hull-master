@@ -40,20 +40,26 @@ export default function QualityUpdatePage() {
   const suggestedExterior = remaining !== "" && interior !== "" ? Math.max(0, Number(remaining) - Number(interior)) : "";
   const suggestedInterior = remaining !== "" && exterior !== "" ? Math.max(0, Number(remaining) - Number(exterior)) : "";
   const suggestedRemaining = interior !== "" && exterior !== "" ? Number(interior) + Number(exterior) : "";
+  const effectiveInterior = interior === "" ? suggestedInterior : interior;
+  const effectiveExterior = exterior === "" ? suggestedExterior : exterior;
+  const effectiveRemaining = remaining === "" ? suggestedRemaining : remaining;
 
   const message = useMemo(() => {
     if (!boat) return "";
     const lines = [
       `*${boat.name} 3rd Audit Quality Report Update*`,
       `Date: ${date}`,
+      "",
       `Overall Defect Total - ${boat.defects.length}`,
       `Overall Concerns Total - ${concerns.length}`
     ];
-    if (notes.trim()) lines.push("Additional Notes:", notes.trim());
+    if (notes.trim()) lines.push("", "Additional Notes:", notes.trim(), "");
+    else lines.push("");
     lines.push(
-      `Interior Defects Remaining - ${numberOrBlank(interior)}`,
-      `Exterior Defects Remaining - ${numberOrBlank(exterior)}`,
-      `Total Defects Remaining - ${numberOrBlank(remaining)}`,
+      `Total Defects Remaining - ${numberOrBlank(effectiveRemaining)}`,
+      `Interior Defects Remaining - ${numberOrBlank(effectiveInterior)}`,
+      `Exterior Defects Remaining - ${numberOrBlank(effectiveExterior)}`,
+      "",
       `Defects Completed from Previous Update - ${numberOrBlank(completed)}`,
       `Number of Callbacks - ${numberOrBlank(callbacks)}`
     );
@@ -69,7 +75,7 @@ export default function QualityUpdatePage() {
       });
     }
     return lines.join("\n");
-  }, [boat, callbacks, completed, concerns.length, date, exterior, includedConcerns, interior, notes, remaining]);
+  }, [boat, callbacks, completed, concerns.length, date, effectiveExterior, effectiveInterior, effectiveRemaining, includedConcerns, notes]);
 
   async function copyMessage() {
     try {
@@ -103,9 +109,9 @@ export default function QualityUpdatePage() {
         </div>
         <div className={styles.fields}>
           <label>Date<input type="text" value={date} onChange={(event) => setDate(event.target.value)} /></label>
-          <label>Interior defects remaining<input inputMode="numeric" type="number" min="0" value={interior} placeholder={suggestedInterior === "" ? "" : `Suggested: ${suggestedInterior}`} onChange={(event) => setInterior(event.target.value)} /></label>
-          <label>Exterior defects remaining<input inputMode="numeric" type="number" min="0" value={exterior} placeholder={suggestedExterior === "" ? "" : `Suggested: ${suggestedExterior}`} onChange={(event) => setExterior(event.target.value)} /></label>
-          <label>Total defects remaining<input inputMode="numeric" type="number" min="0" value={remaining} placeholder={suggestedRemaining === "" ? "" : `Suggested: ${suggestedRemaining}`} onChange={(event) => setRemaining(event.target.value)} /></label>
+          <label>Total defects remaining<input className={remaining === "" && effectiveRemaining !== "" ? styles.calculated : ""} inputMode="numeric" type="number" min="0" value={effectiveRemaining} onFocus={(event) => { if (remaining === "" && effectiveRemaining !== "") event.target.select(); }} onChange={(event) => setRemaining(event.target.value)} /></label>
+          <label>Interior defects remaining<input className={interior === "" && effectiveInterior !== "" ? styles.calculated : ""} inputMode="numeric" type="number" min="0" value={effectiveInterior} onFocus={(event) => { if (interior === "" && effectiveInterior !== "") event.target.select(); }} onChange={(event) => setInterior(event.target.value)} /></label>
+          <label>Exterior defects remaining<input className={exterior === "" && effectiveExterior !== "" ? styles.calculated : ""} inputMode="numeric" type="number" min="0" value={effectiveExterior} onFocus={(event) => { if (exterior === "" && effectiveExterior !== "") event.target.select(); }} onChange={(event) => setExterior(event.target.value)} /></label>
           <label>Defects completed from previous update<input inputMode="numeric" type="number" min="0" value={completed} onChange={(event) => setCompleted(event.target.value)} /></label>
           <label>Number of callbacks<input inputMode="numeric" type="number" min="0" value={callbacks} onChange={(event) => setCallbacks(event.target.value)} /></label>
           <label className={styles.notes}>Additional notes <span>(optional)</span><textarea rows="3" value={notes} onChange={(event) => setNotes(event.target.value)} /></label>
