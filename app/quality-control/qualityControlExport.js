@@ -1,6 +1,7 @@
 "use client";
 
 const QUALITY_CODE_KEY = "1 Gelcoat · 2 Flowcoat · 3 Joinery/Carp · 4 Deckfitting · 5 Plumbing · 6 Mechanical · 7 Electrical · 8 Perspex/Windows · 9 Spray Painting · 10 Cleaning";
+const blankSignoffCells = () => ["", "", "", "", ""];
 
 function downloadBlob(blob, fileName) {
   const url = URL.createObjectURL(blob);
@@ -31,7 +32,7 @@ function addQualityWorksheet(workbook, boat) {
     areaRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDDE8E3" } };
     sheet.mergeCells(`B${areaRow.number}:K${areaRow.number}`);
     boat.defects.filter((defect) => defect.area === area).forEach((defect) => {
-      sheet.addRow([number, defect.concern ? "X" : "", defect.code || "", defect.item, defect.failure, defect.description, defect.repairedBy || "", defect.repairedDate || "", defect.teamLeaderCheck || "", defect.qcRwk || "", defect.qcAcc || ""]);
+      sheet.addRow([number, defect.concern ? "X" : "", defect.code || "", defect.item, defect.failure, defect.description, ...blankSignoffCells()]);
       number += 1;
     });
   });
@@ -74,7 +75,7 @@ export async function exportQualityPdf(boat) {
   boat.areas.forEach((area) => {
     rows.push([{ content: `${area} · Inspector: ${boat.areaInspectors?.[area] || "Not assigned"}`, colSpan: 11, styles: { fillColor: [221, 232, 227], fontStyle: "bold" } }]);
     boat.defects.filter((defect) => defect.area === area).forEach((defect) => {
-      rows.push([number++, defect.concern ? "X" : "", defect.code || "", defect.item, defect.failure, defect.description, defect.repairedBy || "", defect.repairedDate || "", defect.teamLeaderCheck || "", defect.qcRwk || "", defect.qcAcc || ""]);
+      rows.push([number++, defect.concern ? "X" : "", defect.code || "", defect.item, defect.failure, defect.description, ...blankSignoffCells()]);
     });
   });
   doc.setFillColor(11, 45, 73);
