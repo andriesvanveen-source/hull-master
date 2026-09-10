@@ -18,6 +18,15 @@ function uniqueItemSuggestions(entries) {
     return true;
   });
 }
+function uniqueValues(entries, field) {
+  const seen = new Set();
+  return entries.map((entry) => entry[field]).filter((value) => {
+    const key = normalize(value);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).sort((a, b) => a.localeCompare(b));
+}
 function scoreMatch(entry, values) {
   const area = normalize(values.area);
   const item = normalize(values.item);
@@ -74,7 +83,14 @@ export default function QualityBoatPage({ params }) {
     if (boat.defects.some((defect) => defect.area === area)) return setMessage("Remove this area's defects before removing the area.");
     save({ ...boat, areas: boat.areas.filter((item) => item !== area), completedAreas: boat.completedAreas.filter((item) => item !== area) });
   }
-  function setDraft(area, field, value) { setDrafts((current) => ({ ...current, [area]: { ...(current[area] || {}), [field]: value } })); }
+  function setDraft(area, field, value) {
+    setDrafts((current) => {
+      const next = { ...(current[area] || {}), [field]: value };
+      if (field === "item") { next.failure = ""; next.description = ""; }
+      if (field === "failure") next.description = "";
+      return { ...current, [area]: next };
+    });
+  }
   function addDefect(area) {
     const draft = drafts[area] || {};
     if (!draft.item?.trim() || !draft.failure?.trim() || !draft.description?.trim()) return setMessage("Complete Item/Part/Subcomponent, Failure and Description before adding the defect.");
@@ -141,9 +157,9 @@ export default function QualityBoatPage({ params }) {
                   ))}
                   <tr className={styles.draftRow}>
                     <td></td>
-                    <td><input value={drafts[area]?.item || ""} onChange={(event) => setDraft(area, "item", event.target.value)} list={`items-${area}`} placeholder="Item/Part/Subcomponent" /><datalist id={`items-${area}`}>{uniqueItemSuggestions(catalog.filter((entry) => entry.area === area)).map((entry) => <option key={normalize(entry.item)} value={entry.item} />)}</datalist></td>
-                    <td><input value={drafts[area]?.failure || ""} onChange={(event) => setDraft(area, "failure", event.target.value)} placeholder="Failure" /></td>
-                    <td><textarea value={drafts[area]?.description || ""} onChange={(event) => setDraft(area, "description", event.target.value)} placeholder="Description" /></td>
+                    <td><select value={drafts[area]?.item || ""} onChange={(event) => setDraft(area, "item", event.target.value)} aria-label={`${area} item, part or subcomponent`}><option value="">Select item/part/subcomponent</option>{uniqueItemSuggestions(catalog.filter((entry) => normalize(entry.area) === normalize(area))).sort((a, b) => a.item.localeCompare(b.item)).map((entry) => <option key={normalize(entry.item)} value={entry.item}>{entry.item}</option>)}</select></td>
+                    <td><select value={drafts[area]?.failure || ""} onChange={(event) => setDraft(area, "failure", event.target.value)} disabled={!drafts[area]?.item} aria-label={`${area} failure mode`}><option value="">{drafts[area]?.item ? "Select failure mode" : "Select an item first"}</option>{uniqueValues(catalog.filter((entry) => normalize(entry.area) === normalize(area) && normalize(entry.item) === normalize(drafts[area]?.item)), "issue").map((failure) => <option key={normalize(failure)} value={failure}>{failure}</option>)}</select></td>
+                    <td><select value={drafts[area]?.description || ""} onChange={(event) => setDraft(area, "description", event.target.value)} disabled={!drafts[area]?.failure} aria-label={`${area} defect description`}><option value="">{drafts[area]?.failure ? "Select defect description" : "Select a failure mode first"}</option>{uniqueValues(catalog.filter((entry) => normalize(entry.area) === normalize(area) && normalize(entry.item) === normalize(drafts[area]?.item) && normalize(entry.issue) === normalize(drafts[area]?.failure)), "defect").map((description) => <option key={normalize(description)} value={description}>{description}</option>)}</select></td>
                     <td className={styles.code}>{matchCode({ ...(drafts[area] || {}), area }) || "–"}</td>
                     <td><button className={styles.add} type="button" onClick={() => addDefect(area)}>Add</button></td>
                   </tr>

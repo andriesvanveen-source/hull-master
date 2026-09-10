@@ -17,7 +17,9 @@
 .auditTable th:first-child { width: 38px; }.auditTable th:nth-child(2) { width: 22%; }.auditTable th:nth-child(3) { width: 17%; }.auditTable th:nth-child(4) { width: 34%; }.auditTable th:nth-child(5) { width: 64px; }.auditTable th:nth-child(6) { width: 120px; }
 .auditTable td { border-top: 1px solid #d5dfe8; border-right: 1px solid #d5dfe8; vertical-align: top; }
 .auditTable td:last-child, .auditTable th:last-child { border-right: 0; }
-.auditTable input, .auditTable textarea { display: block; width: 100%; min-height: 44px; border: 0; padding: 9px; resize: vertical; background: transparent; color: #18232d; font: 13px/1.35 Arial, sans-serif; }
+.auditTable input, .auditTable textarea, .auditTable select { display: block; width: 100%; min-height: 44px; border: 0; padding: 9px; resize: vertical; background: transparent; color: #18232d; font: 13px/1.35 Arial, sans-serif; }
+.auditTable select { cursor: pointer; }
+.auditTable select:disabled { color: #778696; cursor: not-allowed; }
 .auditTable textarea { min-height: 58px; }
 .areaRow td { padding: 0; background: #dfe8e3; }
 .areaRow td > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; }
