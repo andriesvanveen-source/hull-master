@@ -1,5 +1,6 @@
 import json
 import re
+from collections import Counter
 from pathlib import Path
 
 import openpyxl
@@ -11,7 +12,16 @@ OUTPUT_JSON = ROOT / "public" / "quality-control" / "reference-audits.json"
 OUTPUT_SQL = ROOT / "supabase" / "quality-control-reference-data.sql"
 OUTPUT_SQL_PATTERN = "quality-control-reference-data-{model}.sql"
 C2026_OUTPUT_SQL = ROOT / "supabase" / "quality-control-reference-data-C2026.sql"
+INSPECTOR_OUTPUT_SQL = ROOT / "supabase" / "quality-control-area-inspectors.sql"
 DISCIPLINES = {1: "Gelcoat", 2: "Flowcoat", 3: "Joinery/Carp", 4: "Deckfitting", 5: "Plumbing", 6: "Mechanical", 7: "Electrical", 8: "Perspex/Windows", 9: "Spray Painting", 10: "Cleaning"}
+INSPECTOR_ALIASES = {
+    "imran": "Imran Majiet", "imran majiet": "Imran Majiet",
+    "imtiyaaz": "Imtiyaaz Hassan Hoosain", "imtiyaaz hoosain": "Imtiyaaz Hassan Hoosain", "imtiyaaz hassan hoosain": "Imtiyaaz Hassan Hoosain",
+    "jodi jackson": "Jodi Jackson", "kyle": "Kyle Carl Adams", "kyle adams": "Kyle Carl Adams", "kyle carl adams": "Kyle Carl Adams",
+    "s philander": "Moegamat Saleem Philander", "saleem philander": "Moegamat Saleem Philander", "moegamat saleem philander": "Moegamat Saleem Philander",
+    "yunus": "Mogamat Yunis Jabaar", "yunis": "Mogamat Yunis Jabaar", "mogamat yunis jabaar": "Mogamat Yunis Jabaar",
+    "riyaaz harold": "Riyaaz Harold", "sheldon": "Sheldon Barends", "sheldon barends": "Sheldon Barends", "zunaid hoosen": "Zunaid Hoosen",
+}
 STAMP = "2026-09-10T00:00:00+00:00"
 
 
@@ -65,12 +75,25 @@ def sql_text(value):
     return "'" + str(value or "").replace("'", "''") + "'"
 
 
+def inspector_name(value):
+    match = re.search(r"QC\s*NAME\s*:\s*(.*)", str(value or ""), re.I)
+    if not match:
+        return ""
+    raw_name = clean(match.group(1).replace("_", " "))
+    normalized = re.sub(r"[^a-z]+", " ", raw_name.lower()).strip()
+    return INSPECTOR_ALIASES.get(normalized, "")
+
+
 def parse_audit(sheet, name, defect_id_prefix=None):
     current_area = "Unassigned"
     areas = []
     defects = []
+    inspector_observations = {}
     for row_number, values in enumerate(sheet.iter_rows(values_only=True), 1):
         row = list(values) + [None] * 12
+        inspector = inspector_name(row[0])
+        if inspector and current_area != "Unassigned":
+            inspector_observations.setdefault(canonical_area(current_area), []).append(inspector)
         if is_heading(row):
             candidate = heading_candidate(row)
             if candidate:
@@ -96,9 +119,14 @@ def parse_audit(sheet, name, defect_id_prefix=None):
             "teamLeaderCheck": clean(row[9]), "qcRwk": clean(row[10]), "qcAcc": clean(row[11]),
             "createdAt": STAMP, "updatedAt": STAMP,
         })
+    area_inspectors = {
+        area: Counter(names).most_common(1)[0][0]
+        for area, names in inspector_observations.items()
+        if area in areas and names and len(set(names)) == 1
+    }
     return {
         "id": f"qc-reference-{name.lower()}", "name": name, "model": name[:2], "areas": areas,
-        "areaInspectors": {}, "completedAreas": [], "defects": defects,
+        "areaInspectors": area_inspectors, "completedAreas": [], "defects": defects,
         "createdAt": STAMP, "updatedAt": STAMP,
     }
 
@@ -137,10 +165,25 @@ def build():
     c2026_audit = next(audit for audit in audits if audit["name"] == "C2026")
     c2026_audit["areas"] = list(dict.fromkeys([*c2026_audit["areas"], *c2026_supplement["areas"]]))
     c2026_audit["defects"].extend(c2026_supplement["defects"])
+    c2026_audit["areaInspectors"].update(c2026_supplement["areaInspectors"])
     c2026_audit["updatedAt"] = STAMP
     OUTPUT_JSON.write_text(json.dumps(audits, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     C2026_OUTPUT_SQL.write_text(sql_for_audits([c2026_supplement], "C2026 supplemental audit"), encoding="utf-8")
-    print(f"Generated {len(audits)} audits and {sum(len(a['defects']) for a in audits)} defects, including {len(c2026_supplement['defects'])} supplemental C2026 defects")
+    inspector_lines = [
+        "-- Fill only blank Quality Control area inspectors extracted from the supplied audit workbooks.",
+        "-- Existing inspector assignments are deliberately preserved.",
+        "begin;",
+    ]
+    for audit in audits:
+        for area, inspector in audit["areaInspectors"].items():
+            inspector_lines.append(
+                f"update public.quality_control_areas set inspector={sql_text(inspector)}, updated_at=now() "
+                f"where boat_id={sql_text(audit['id'])} and area_name={sql_text(area)} and coalesce(trim(inspector),'')='';"
+            )
+    inspector_lines.extend(["commit;", "select count(*) as assigned_area_inspectors from public.quality_control_areas where coalesce(trim(inspector),'') <> '';", ""])
+    INSPECTOR_OUTPUT_SQL.write_text("\n".join(inspector_lines), encoding="utf-8")
+    inspector_count = sum(len(audit["areaInspectors"]) for audit in audits)
+    print(f"Generated {len(audits)} audits and {sum(len(a['defects']) for a in audits)} defects, including {len(c2026_supplement['defects'])} supplemental C2026 defects and {inspector_count} area inspector assignments")
 
 
 if __name__ == "__main__":

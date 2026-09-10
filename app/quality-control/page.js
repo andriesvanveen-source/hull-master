@@ -49,7 +49,7 @@ export default function QualityControlPage() {
     async function bootstrap() {
       const localState = await initializeQualityState();
       if (mounted) { setState(localState); setLoaded(true); }
-      if ((loadQualityState().referenceDataVersion || 0) < 2) {
+      if ((loadQualityState().referenceDataVersion || 0) < 3) {
         try {
           const response = await fetch("/quality-control/reference-audits.json");
           if (!response.ok) throw new Error("Reference audits could not be loaded.");
@@ -143,8 +143,7 @@ export default function QualityControlPage() {
             <article className={styles.boatCard} key={boat.id}>
               <Link href={`/quality-control/boats/${boat.id}`}>
                 <strong>{boat.name}</strong>
-                <span>{boat.defects.length} {boat.defects.length === 1 ? "defect" : "defects"} · {boat.areas.length} areas</span>
-                <small>{Object.values(boat.areaInspectors || {}).filter(Boolean).length} area inspectors assigned</small>
+                <span>{boat.defects.length} {boat.defects.length === 1 ? "defect" : "defects"} · {boat.defects.filter((defect) => defect.concern).length} {boat.defects.filter((defect) => defect.concern).length === 1 ? "concern" : "concerns"}</span>
               </Link>
             </article>
           ))}
