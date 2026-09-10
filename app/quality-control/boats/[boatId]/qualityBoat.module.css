@@ -45,9 +45,22 @@
 
 @media (max-width: 720px) {
   .page { width: 100%; padding: 10px 6px 36px; }
-  .nav { align-items: flex-start; flex-wrap: wrap; padding: 0 4px; }
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    align-items: center;
+    flex-wrap: wrap;
+    margin: -10px -6px 20px;
+    padding: 10px;
+    border-bottom: 1px solid #bdcad6;
+    background: rgba(232, 238, 245, .96);
+    box-shadow: 0 3px 10px rgba(24, 35, 45, .08);
+    backdrop-filter: blur(10px);
+  }
+  .nav > a { min-height: 44px; display: inline-flex; align-items: center; font-size: 16px; font-weight: 800; }
   .actions { gap: 5px; }
-  .actions button { min-height: 34px; padding: 0 10px; }
+  .actions button { min-height: 44px; padding: 0 13px; font-size: 16px; }
   .auditHeader { grid-template-columns: 1fr; gap: 12px; margin-inline: 4px; }
   .auditHeader p { margin: 0; }
   .tableWrap {
