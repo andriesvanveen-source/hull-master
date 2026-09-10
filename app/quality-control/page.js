@@ -11,7 +11,6 @@ export default function QualityControlPage() {
   const [loaded, setLoaded] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
-  const [qualityController, setQualityController] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -29,10 +28,9 @@ export default function QualityControlPage() {
     const normalizedName = name.trim().toUpperCase();
     if (!normalizedName) return setError("Enter a hull number.");
     if (state.boats.some((boat) => boat.name === normalizedName)) return setError(`${normalizedName} already exists.`);
-    const nextState = createQualityBoat(normalizedName, qualityController.trim());
+    const nextState = createQualityBoat(normalizedName);
     setState(nextState);
     setName("");
-    setQualityController("");
     setShowForm(false);
     setError("");
   }
@@ -58,7 +56,6 @@ export default function QualityControlPage() {
         {showForm ? (
           <form className={styles.newBoatForm} onSubmit={addBoat}>
             <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Hull number" aria-label="Hull number" autoFocus />
-            <input value={qualityController} onChange={(event) => setQualityController(event.target.value)} placeholder="Quality Controller" aria-label="Quality Controller" />
             <button type="submit">Add</button>
             <button type="button" className={styles.secondaryButton} onClick={() => setShowForm(false)}>Cancel</button>
           </form>
@@ -72,8 +69,8 @@ export default function QualityControlPage() {
             <article className={styles.boatCard} key={boat.id}>
               <Link href={`/quality-control/boats/${boat.id}`}>
                 <strong>{boat.name}</strong>
-                <span>{boat.defects.length} {boat.defects.length === 1 ? "defect" : "defects"} · {boat.completedAreas.length} areas audited</span>
-                <small>Quality Controller: {boat.qualityController || "Not assigned"}</small>
+                <span>{boat.defects.length} {boat.defects.length === 1 ? "defect" : "defects"} · {boat.areas.length} areas</span>
+                <small>{Object.values(boat.areaInspectors || {}).filter(Boolean).length} area inspectors assigned</small>
               </Link>
             </article>
           ))}

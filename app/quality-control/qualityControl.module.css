@@ -10,7 +10,7 @@
 .kicker { margin: 0 0 10px; color: #526477; font: 700 12px/1 "Courier New", monospace; letter-spacing: .22em; text-transform: uppercase; }
 .hero h1 { margin: 0; font-family: Georgia, serif; font-size: clamp(52px, 11vw, 72px); line-height: .9; }
 .newAuditButton { gap: 8px; }
-.newBoatForm { display: grid; grid-template-columns: 1fr 1fr auto auto; gap: 8px; margin-bottom: 18px; padding: 16px; border: 1px solid #bdcad6; border-radius: 8px; background: #fbfdff; }
+.newBoatForm { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; margin-bottom: 18px; padding: 16px; border: 1px solid #bdcad6; border-radius: 8px; background: #fbfdff; }
 .newBoatForm input { min-width: 0; min-height: 40px; border: 1px solid #bdcad6; border-radius: 6px; padding: 0 11px; color: #0b2d49; background: #fff; }
 .newBoatForm .secondaryButton { border-color: #bdcad6; background: #fff; color: #0b2d49; }
 .summary { margin-bottom: 12px; color: #526477; font: 12px/1.4 "Courier New", monospace; }

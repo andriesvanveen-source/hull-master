@@ -6,15 +6,15 @@
 .actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
 .actions button, .addArea button, .add { min-height: 36px; border: 0; border-radius: 6px; padding: 0 14px; background: #0b2d49; color: #fff; font-size: 13px; font-weight: 800; cursor: pointer; }
 .actions .danger { border: 1px solid #d7aaa5; background: #fff; color: #a0271e; }
-.auditHeader { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) auto; align-items: end; gap: 20px; margin-bottom: 22px; padding-bottom: 20px; border-bottom: 1px solid #bdcad6; }
+.auditHeader { display: grid; grid-template-columns: minmax(220px, 1fr) auto; align-items: end; gap: 20px; margin-bottom: 22px; padding-bottom: 20px; border-bottom: 1px solid #bdcad6; }
 .auditHeader label { display: block; margin-bottom: 5px; color: #526477; font: 700 11px/1 "Courier New", monospace; letter-spacing: .18em; text-transform: uppercase; }
 .auditHeader input { width: 100%; min-height: 48px; border: 1px solid #bdcad6; border-radius: 7px; padding: 7px 10px; background: #fbfdff; color: #0b2d49; font: 800 clamp(24px, 4vw, 38px)/1 Georgia, serif; }
 .auditHeader > div:nth-child(2) input { font: 700 18px/1.2 Arial, sans-serif; }
 .auditHeader p { margin: 0; color: #526477; font: 12px/1.4 "Courier New", monospace; }
 .tableWrap { overflow-x: auto; border: 1px solid #bdcad6; border-radius: 8px; background: #fbfdff; box-shadow: 0 3px 12px rgba(24, 35, 45, .1); }
-.auditTable { width: 100%; min-width: 970px; table-layout: fixed; border-collapse: collapse; }
+.auditTable { width: 100%; min-width: 1030px; table-layout: fixed; border-collapse: collapse; }
 .auditTable th { padding: 10px 8px; border-right: 1px solid #bdcad6; background: #e5ecf3; font: 700 11px/1.2 "Courier New", monospace; letter-spacing: .06em; text-align: left; text-transform: uppercase; }
-.auditTable th:first-child { width: 38px; }.auditTable th:nth-child(2) { width: 22%; }.auditTable th:nth-child(3) { width: 17%; }.auditTable th:nth-child(4) { width: 34%; }.auditTable th:nth-child(5) { width: 64px; }.auditTable th:nth-child(6) { width: 120px; }
+.auditTable th:first-child { width: 38px; }.auditTable th:nth-child(2) { width: 70px; text-align: center; }.auditTable th:nth-child(3) { width: 21%; }.auditTable th:nth-child(4) { width: 17%; }.auditTable th:nth-child(5) { width: 31%; }.auditTable th:nth-child(6) { width: 70px; }.auditTable th:nth-child(7) { width: 120px; }
 .auditTable td { border-top: 1px solid #d5dfe8; border-right: 1px solid #d5dfe8; vertical-align: top; }
 .auditTable td:last-child, .auditTable th:last-child { border-right: 0; }
 .auditTable input, .auditTable textarea, .auditTable select { display: block; width: 100%; min-height: 44px; border: 0; padding: 9px; resize: vertical; background: transparent; color: #18232d; font: 13px/1.35 Arial, sans-serif; }
@@ -29,6 +29,13 @@
 .areaRow .inspectorField input { width: 230px; min-height: 34px; border: 1px solid #aebdcb; border-radius: 6px; background: #fff; padding: 6px 9px; }
 .areaRow button { border: 0; background: transparent; color: #8f2118; font-weight: 700; cursor: pointer; }
 .remove { width: 100%; min-height: 44px; border: 0; background: transparent; color: #a0271e; font-size: 20px; cursor: pointer; }
+.concern { text-align: center; vertical-align: middle !important; }
+.concern label { display: inline-grid; place-items: center; width: 30px; height: 30px; margin: 8px; border: 1px solid #9eafbf; border-radius: 5px; cursor: pointer; }
+.concern input { position: absolute; width: 1px; height: 1px; min-height: 0; opacity: 0; }
+.concern span[aria-hidden="true"] { display: none; color: #a0271e; font-size: 26px; font-weight: 900; line-height: 1; }
+.concern input:checked + span { display: block; }
+.srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.codeInput { text-align: center; font-weight: 900 !important; }
 .code { padding: 13px 8px; text-align: center; font-weight: 900; }
 .draftRow { background: #f2f7fa; }
 .add { margin: 10px; }

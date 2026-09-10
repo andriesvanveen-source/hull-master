@@ -65,10 +65,6 @@ export default function QualityBoatPage({ params }) {
     return Number(candidates[0]?.entry.code) || "";
   }
   function updateBoatField(field, value) { save({ ...boat, [field]: value }); }
-  function toggleAudited(area) {
-    const completed = boat.completedAreas.includes(area) ? boat.completedAreas.filter((item) => item !== area) : [...boat.completedAreas, area];
-    save({ ...boat, completedAreas: completed });
-  }
   function setAreaInspector(area, inspector) {
     save({ ...boat, areaInspectors: { ...(boat.areaInspectors || {}), [area]: inspector } });
   }
@@ -96,7 +92,7 @@ export default function QualityBoatPage({ params }) {
     if (!draft.item?.trim() || !draft.failure?.trim() || !draft.description?.trim()) return setMessage("Complete Item/Part/Subcomponent, Failure and Description before adding the defect.");
     const code = matchCode({ ...draft, area });
     if (!code) return setMessage("No matching common defect code was found. Refine the item, failure or description.");
-    const defect = newQualityDefect({ area, item: draft.item.trim(), failure: draft.failure.trim(), description: draft.description.trim(), code, discipline: codeDiscipline(code) });
+    const defect = newQualityDefect({ area, item: draft.item.trim(), failure: draft.failure.trim(), description: draft.description.trim(), code, concern: false, discipline: codeDiscipline(code) });
     save({ ...boat, defects: [...boat.defects, defect] });
     setDrafts((current) => ({ ...current, [area]: {} }));
   }
@@ -104,6 +100,8 @@ export default function QualityBoatPage({ params }) {
     const defects = boat.defects.map((defect) => {
       if (defect.id !== defectId) return defect;
       const next = { ...defect, [field]: value, updatedAt: new Date().toISOString() };
+      if (field === "code") return { ...next, discipline: codeDiscipline(value) };
+      if (!["item", "failure", "description"].includes(field)) return next;
       const code = matchCode(next);
       return { ...next, code: code || next.code, discipline: codeDiscipline(code || next.code) };
     });
@@ -134,28 +132,29 @@ export default function QualityBoatPage({ params }) {
 
         <header className={styles.auditHeader}>
           <div><label>Hull Number</label><input value={boat.name} onChange={(event) => setBoat((current) => ({ ...current, name: event.target.value.toUpperCase() }))} onBlur={(event) => updateBoatField("name", event.target.value.trim().toUpperCase())} /></div>
-          <div><label>Quality Controller</label><input value={boat.qualityController} onChange={(event) => setBoat((current) => ({ ...current, qualityController: event.target.value }))} onBlur={(event) => updateBoatField("qualityController", event.target.value.trim())} /></div>
           <p>{message || "Saved locally in this browser"}</p>
         </header>
 
         <section className={styles.tableWrap}>
           <datalist id="quality-inspector-options">{QUALITY_INSPECTORS.map((name) => <option key={name} value={name} />)}</datalist>
           <table className={styles.auditTable}>
-            <thead><tr><th aria-label="Remove"></th><th>Item/Part /sub component</th><th>Failure</th><th>Description</th><th>Code</th><th>Discipline</th></tr></thead>
+            <thead><tr><th aria-label="Remove"></th><th>Concern</th><th>Item/Part /sub component</th><th>Failure</th><th>Description</th><th>Code</th><th>Discipline</th></tr></thead>
             <tbody>
               {boat.areas.map((area) => (
                 <Fragment key={area}>
-                  <tr className={styles.areaRow}><td colSpan="6"><div><strong>{area}</strong><span className={styles.areaControls}><label className={styles.inspectorField}>Inspector<input list="quality-inspector-options" value={boat.areaInspectors?.[area] || ""} onChange={(event) => setAreaInspector(area, event.target.value)} placeholder="Select or type a name" /></label><label><input type="checkbox" checked={boat.completedAreas.includes(area)} onChange={() => toggleAudited(area)} /> Audited</label><button type="button" onClick={() => removeArea(area)}>Remove</button></span></div></td></tr>
+                  <tr className={styles.areaRow}><td colSpan="7"><div><strong>{area}</strong><span className={styles.areaControls}><label className={styles.inspectorField}>Inspector<input list="quality-inspector-options" value={boat.areaInspectors?.[area] || ""} onChange={(event) => setAreaInspector(area, event.target.value)} placeholder="Select or type a name" /></label><button type="button" onClick={() => removeArea(area)}>Remove</button></span></div></td></tr>
                   {boat.defects.filter((defect) => defect.area === area).map((defect) => (
                     <tr key={defect.id}>
                       <td><button className={styles.remove} type="button" onClick={() => removeDefect(defect.id)} aria-label={`Remove ${defect.item}`}>−</button></td>
+                      <td className={styles.concern}><label><input type="checkbox" checked={Boolean(defect.concern)} onChange={(event) => updateDefect(defect.id, "concern", event.target.checked)} /><span aria-hidden="true">×</span><span className={styles.srOnly}>Concern</span></label></td>
                       <td><input value={defect.item} onChange={(event) => updateDefect(defect.id, "item", event.target.value)} /></td>
                       <td><input value={defect.failure} onChange={(event) => updateDefect(defect.id, "failure", event.target.value)} /></td>
                       <td><textarea value={defect.description} onChange={(event) => updateDefect(defect.id, "description", event.target.value)} /></td>
-                      <td className={styles.code}>{defect.code}</td><td>{defect.discipline}</td>
+                      <td><input className={styles.codeInput} inputMode="numeric" value={defect.code} onChange={(event) => updateDefect(defect.id, "code", event.target.value)} aria-label={`Code for ${defect.item}`} /></td><td>{defect.discipline}</td>
                     </tr>
                   ))}
                   <tr className={styles.draftRow}>
+                    <td></td>
                     <td></td>
                     <td><select value={drafts[area]?.item || ""} onChange={(event) => setDraft(area, "item", event.target.value)} aria-label={`${area} item, part or subcomponent`}><option value="">Select item/part/subcomponent</option>{uniqueItemSuggestions(catalog.filter((entry) => normalize(entry.area) === normalize(area))).sort((a, b) => a.item.localeCompare(b.item)).map((entry) => <option key={normalize(entry.item)} value={entry.item}>{entry.item}</option>)}</select></td>
                     <td><select value={drafts[area]?.failure || ""} onChange={(event) => setDraft(area, "failure", event.target.value)} disabled={!drafts[area]?.item} aria-label={`${area} failure mode`}><option value="">{drafts[area]?.item ? "Select failure mode" : "Select an item first"}</option>{uniqueValues(catalog.filter((entry) => normalize(entry.area) === normalize(area) && normalize(entry.item) === normalize(drafts[area]?.item)), "issue").map((failure) => <option key={normalize(failure)} value={failure}>{failure}</option>)}</select></td>
@@ -176,8 +175,8 @@ export default function QualityBoatPage({ params }) {
         </form>
 
         <section className={styles.printOnly}>
-          <h1>Quality Control Audit — Hull {boat.name}</h1><p>Quality Controller: {boat.qualityController}</p>
-          <table><thead><tr><th>No</th><th>Code</th><th>Item/Part /sub component</th><th>Failure</th><th>Part</th><th>Description</th><th>Repaired by</th><th>Repaired Date</th><th>TL/BM CHECK</th><th>QC</th></tr></thead><tbody>{boat.areas.flatMap((area) => [<tr className={styles.printArea} key={`${area}-head`}><td colSpan="10">{area} · Inspector: {boat.areaInspectors?.[area] || "Not assigned"}</td></tr>, ...boat.defects.filter((defect) => defect.area === area).map((defect, index) => <tr key={`${defect.id}-print`}><td>{index + 1}</td><td>{defect.code}</td><td>{defect.item}</td><td>{defect.failure}</td><td></td><td>{defect.description}</td><td></td><td></td><td></td><td></td></tr>)])}</tbody></table>
+          <h1>Quality Control Audit — Hull {boat.name}</h1>
+          <table><thead><tr><th rowSpan="2">No</th><th rowSpan="2">Concerns</th><th rowSpan="2">Code</th><th rowSpan="2">Item/Part /sub component</th><th rowSpan="2">Failure</th><th rowSpan="2">Description</th><th rowSpan="2">Repaired by</th><th rowSpan="2">Repaired Date</th><th rowSpan="2">TL/BM CHECK</th><th colSpan="2">QC</th></tr><tr><th>RWK</th><th>ACC</th></tr></thead><tbody>{boat.areas.flatMap((area) => [<tr className={styles.printArea} key={`${area}-head`}><td colSpan="11">{area} · Inspector: {boat.areaInspectors?.[area] || "Not assigned"}</td></tr>, ...boat.defects.filter((defect) => defect.area === area).map((defect, index) => <tr key={`${defect.id}-print`}><td>{index + 1}</td><td>{defect.concern ? "X" : ""}</td><td>{defect.code}</td><td>{defect.item}</td><td>{defect.failure}</td><td>{defect.description}</td><td></td><td></td><td></td><td></td><td></td></tr>)])}</tbody></table>
         </section>
       </main>
     </div>

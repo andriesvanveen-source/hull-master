@@ -14,8 +14,8 @@ const sampleAreas = {
 function makeId(prefix = "qc") { return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`; }
 function createSampleBoat() {
   const now = new Date().toISOString();
-  const defects = Object.entries(sampleAreas).flatMap(([area, rows]) => rows.map(([item, failure, description, code]) => ({ id: makeId("defect"), area, item, failure, description, code, discipline: QUALITY_CODE_DISCIPLINES[code], createdAt: now, updatedAt: now })));
-  return { id: "generic-quality-audit", name: "QC-DEMO-001", qualityController: "Generic User", areas: Object.keys(sampleAreas), areaInspectors: {}, completedAreas: [], defects, createdAt: now, updatedAt: now };
+  const defects = Object.entries(sampleAreas).flatMap(([area, rows]) => rows.map(([item, failure, description, code]) => ({ id: makeId("defect"), area, item, failure, description, code, concern: false, discipline: QUALITY_CODE_DISCIPLINES[code], createdAt: now, updatedAt: now })));
+  return { id: "generic-quality-audit", name: "QC-DEMO-001", areas: Object.keys(sampleAreas), areaInspectors: {}, completedAreas: [], defects, createdAt: now, updatedAt: now };
 }
 
 export function loadQualityState() {
@@ -26,10 +26,10 @@ export function loadQualityState() {
   return saveQualityState({ boats: [createSampleBoat()] });
 }
 export function saveQualityState(state) { window.localStorage.setItem(QUALITY_STORAGE_KEY, JSON.stringify(state)); return state; }
-export function createQualityBoat(name, qualityController = "") {
+export function createQualityBoat(name) {
   const state = loadQualityState();
   const now = new Date().toISOString();
-  state.boats.unshift({ id: makeId("boat"), name, qualityController, areas: [], areaInspectors: {}, completedAreas: [], defects: [], createdAt: now, updatedAt: now });
+  state.boats.unshift({ id: makeId("boat"), name, areas: [], areaInspectors: {}, completedAreas: [], defects: [], createdAt: now, updatedAt: now });
   return saveQualityState(state);
 }
 export function updateQualityBoat(nextBoat) {
