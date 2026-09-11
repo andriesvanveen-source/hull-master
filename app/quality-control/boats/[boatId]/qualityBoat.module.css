@@ -45,27 +45,10 @@
 
 @media (max-width: 720px) {
   .page { width: 100%; padding: 10px 6px 36px; }
-  .editorHeader {
-    position: sticky;
-    top: 0;
-    z-index: 20;
-    margin: -10px -6px 14px;
-    padding: 10px 10px 12px;
-    border-bottom: 2px solid #9eafbf;
-    background: #e8eef5;
-    box-shadow: 0 3px 10px rgba(24, 35, 45, .12);
-  }
-  .nav {
-    align-items: center;
-    flex-wrap: nowrap;
-    margin: 0 0 10px;
-    padding: 0;
-  }
-  .nav > a { flex: 0 0 auto; min-height: 52px; display: inline-flex; align-items: center; font-size: 18px; font-weight: 800; }
-  .actions { flex: 0 0 auto; flex-wrap: nowrap; gap: 5px; }
-  .actions button { min-height: 52px; padding: 0 11px; font-size: 17px; }
-  .auditHeader { grid-template-columns: minmax(160px, 1fr) auto; gap: 12px; margin: 0; padding: 0; border-bottom: 0; }
-  .auditHeader input { min-height: 52px; font-size: 32px; }
+  .nav { align-items: flex-start; flex-wrap: wrap; padding: 0 4px; }
+  .actions { gap: 5px; }
+  .actions button { min-height: 34px; padding: 0 10px; }
+  .auditHeader { grid-template-columns: 1fr; gap: 12px; margin-inline: 4px; }
   .auditHeader p { margin: 0; }
   .tableWrap {
     width: 100%;
@@ -77,13 +60,10 @@
     touch-action: pan-x pan-y pinch-zoom;
   }
   .auditTable { width: 1030px; min-width: 1030px; zoom: 1; }
-  .auditTable thead th { position: sticky; top: 152px; z-index: 12; border-bottom: 2px solid #9eafbf; background: #dce6ef; box-shadow: 0 2px 4px rgba(24, 35, 45, .12); }
-  .auditTable th { min-height: 48px; padding-block: 13px; white-space: normal; overflow-wrap: normal; word-break: normal; font-size: 13px; }
-  .auditTable input, .auditTable textarea, .auditTable select { font-size: 16px; }
+  .auditTable th { white-space: normal; overflow-wrap: normal; word-break: normal; }
   .auditTable input, .auditTable textarea, .auditTable select, .auditTable button { touch-action: pan-x pan-y pinch-zoom; }
   .areaRow td > div { min-width: 100%; }
   .addArea { padding: 0 4px; }
-  .addArea input { font-size: 16px; }
 }
 
 @media (pointer: coarse) {

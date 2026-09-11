@@ -1,11 +1,12 @@
 export const viewport = {
-  width: 1100,
+  width: "device-width",
+  initialScale: 1,
   minimumScale: 0.25,
   maximumScale: 5,
   userScalable: true,
   themeColor: "#071b2e"
 };
 
-export default function QualityBoatLayout({ children }) {
+export default function QualityUpdateLayout({ children }) {
   return children;
 }
