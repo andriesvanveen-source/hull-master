@@ -7,6 +7,7 @@ import styles from "./qualityBoat.module.css";
 import { clearDeletedQualityBoat, codeDiscipline, deleteQualityBoat, findQualityBoat, flushQualityState, initializeQualityState, loadQualityState, markQualityBoatSynced, mergeQualityStates, newQualityDefect, updateQualityBoat } from "../../qualityControlStorage";
 import { exportQualityExcel, exportQualityPdf } from "../../qualityControlExport";
 import { deleteSharedQualityBoat, loadSharedQualityBoat, subscribeToQualityControlChanges, syncQualityBoat } from "../../../../lib/qualityControlSupabase";
+import { confirmProtectedAuditDelete } from "../../../../lib/protectedAuditDelete";
 
 function normalize(value) { return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(); }
 const QUALITY_INSPECTORS = ["Imran Majiet", "Imtiyaaz Hassan Hoosain", "Jodi Jackson", "Kyle Carl Adams", "Moegamat Saleem Philander", "Mogamat Yunis Jabaar", "Riyaaz Harold", "Sheldon Barends", "Zunaid Hoosen"];
@@ -148,7 +149,7 @@ export default function QualityBoatPage({ params }) {
     save({ ...boat, defects: boat.defects.filter((entry) => entry.id !== defectId) });
   }
   function deleteBoat() {
-    if (!window.confirm(`Delete ${boat.name}? This local audit cannot be recovered.`)) return;
+    if (!confirmProtectedAuditDelete(boat.name)) return;
     deleteQualityBoat(boat.id);
     deleteSharedQualityBoat(boat.id).then(() => clearDeletedQualityBoat(boat.id)).catch(() => {});
     router.push("/quality-control");

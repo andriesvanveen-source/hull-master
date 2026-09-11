@@ -19,6 +19,7 @@ import {
 } from "../../../lib/constants";
 import { exportBoatReport } from "../../../lib/pdfReport";
 import { exportBoatsWorkbook } from "../../../lib/excelExport";
+import { confirmProtectedAuditDelete } from "../../../lib/protectedAuditDelete";
 import {
   createDefect,
   deleteBoat,
@@ -838,11 +839,7 @@ export default function BoatLogPage({ params }) {
   }
 
   async function deleteCurrentBoat() {
-    const confirmed = window.confirm("Are you sure you want to delete this boat?");
-
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmProtectedAuditDelete(boat.name)) return;
 
     try {
       await runSupabaseMutation(() => deleteBoat(boat.id));

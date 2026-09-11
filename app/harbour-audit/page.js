@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import jsPDF from "jspdf";
 import HomeBackButton from "../components/HomeBackButton";
 import { COMMISSIONING_ENGINEERS } from "../../lib/constants";
+import { confirmProtectedAuditDelete } from "../../lib/protectedAuditDelete";
 import {
   deleteSharedHarbourAudit,
   loadSharedHarbourAudits,
@@ -695,6 +696,7 @@ export default function HomePage() {
 
   async function deleteAudit(id) {
     const audit = auditsRef.current.find((item) => item.id === id);
+    if (!audit || !confirmProtectedAuditDelete(audit.name || "this harbour audit")) return;
     const nextAudits = auditsRef.current.filter((item) => item.id !== id);
     auditsRef.current = nextAudits;
     setAudits(nextAudits);
