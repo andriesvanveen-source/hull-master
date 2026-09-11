@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { findQualityBoat, initializeQualityState } from "../../../qualityControlStorage";
+import { resetMobileViewport } from "../../../resetMobileViewport";
 import styles from "./qualityUpdate.module.css";
 
 function today() {
@@ -27,6 +28,8 @@ export default function QualityUpdatePage() {
   const [callbacks, setCallbacks] = useState("");
   const [excludedConcernIds, setExcludedConcernIds] = useState([]);
   const [copyStatus, setCopyStatus] = useState("");
+
+  useEffect(() => resetMobileViewport(), []);
 
   useEffect(() => {
     initializeQualityState().then(() => {
@@ -98,7 +101,6 @@ export default function QualityUpdatePage() {
       <header className={styles.header}>
         <div><Link href="/quality-control">← All boats</Link><p>Quality update</p><h1>{boat.name}</h1></div>
         <div className={styles.headerActions}>
-          <button className={styles.resetButton} type="button" onClick={() => setExcludedConcernIds([])} disabled={!excludedConcernIds.length}>Reset concerns</button>
           <button type="button" onClick={copyMessage}>Copy</button>
         </div>
       </header>
@@ -122,7 +124,10 @@ export default function QualityUpdatePage() {
       </section>
 
       <section className={styles.concernsCard}>
-        <div className={styles.sectionTitle}><div><p>Remaining concerns</p><h2>{includedConcerns.length} included</h2></div><span>Remove completed concerns from this message only.</span></div>
+        <div className={styles.sectionTitle}>
+          <div><p>Remaining concerns</p><h2>{includedConcerns.length} included</h2></div>
+          <div className={styles.concernTools}><span>Remove completed concerns from this message only.</span><button className={styles.resetButton} type="button" onClick={() => setExcludedConcernIds([])} disabled={!excludedConcernIds.length}>Reset concerns</button></div>
+        </div>
         {!includedConcerns.length ? <p className={styles.empty}>No remaining concerns selected.</p> : includedConcerns.map((defect) => (
           <article className={styles.concern} key={defect.id}>
             <div><small>{defect.area}</small><p>{defect.description || defect.failure || defect.item}</p></div>

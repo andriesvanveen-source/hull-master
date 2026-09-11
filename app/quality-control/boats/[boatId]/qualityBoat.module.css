@@ -74,9 +74,11 @@
   }
   .auditTable { width: 1030px; min-width: 1030px; zoom: 1; }
   .auditTable th { white-space: normal; overflow-wrap: normal; word-break: normal; }
+  .auditTable input, .auditTable textarea, .auditTable select { font-size: 16px; }
   .auditTable input, .auditTable textarea, .auditTable select, .auditTable button { touch-action: pan-x pan-y pinch-zoom; }
   .areaRow td > div { min-width: 100%; }
   .addArea { padding: 0 4px; }
+  .addArea input { font-size: 16px; }
 }
 
 @media (pointer: coarse) {

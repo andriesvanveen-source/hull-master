@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Fragment, use, useEffect, useMemo, useRef, useState } from "react";
 import styles from "./qualityBoat.module.css";
 import { clearDeletedQualityBoat, codeDiscipline, deleteQualityBoat, findQualityBoat, flushQualityState, initializeQualityState, loadQualityState, markQualityBoatSynced, mergeQualityStates, newQualityDefect, updateQualityBoat } from "../../qualityControlStorage";
+import { resetMobileViewport } from "../../resetMobileViewport";
 import { exportQualityExcel, exportQualityPdf } from "../../qualityControlExport";
 import { deleteSharedQualityBoat, loadSharedQualityBoat, subscribeToQualityControlChanges, syncQualityBoat } from "../../../../lib/qualityControlSupabase";
 
@@ -53,6 +54,8 @@ export default function QualityBoatPage({ params }) {
   const [message, setMessage] = useState("");
   const syncTimer = useRef(null);
   const saveVersion = useRef(0);
+
+  useEffect(() => resetMobileViewport(), []);
 
   useEffect(() => {
     let mounted = true;
@@ -141,7 +144,12 @@ export default function QualityBoatPage({ params }) {
     });
     save({ ...boat, defects });
   }
-  function removeDefect(defectId) { save({ ...boat, defects: boat.defects.filter((defect) => defect.id !== defectId) }); }
+  function removeDefect(defectId) {
+    const defect = boat.defects.find((entry) => entry.id === defectId);
+    const description = defect?.description || defect?.failure || defect?.item || "this defect";
+    if (!window.confirm(`Are you sure you want to remove this defect?\n\n${description}`)) return;
+    save({ ...boat, defects: boat.defects.filter((entry) => entry.id !== defectId) });
+  }
   function deleteBoat() {
     if (!window.confirm(`Delete ${boat.name}? This local audit cannot be recovered.`)) return;
     deleteQualityBoat(boat.id);

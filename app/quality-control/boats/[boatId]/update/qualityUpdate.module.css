@@ -5,7 +5,6 @@
 .header h1 { margin: 0; font: 800 48px/.95 Georgia, serif; }
 .header button { min-height: 42px; border: 0; border-radius: 7px; padding: 0 22px; background: #0b2d49; color: white; font-weight: 800; cursor: pointer; }
 .headerActions { display: flex; align-items: center; gap: 8px; }
-.header .resetButton { border: 1px solid #9eafbf; background: #fff; color: #0b2d49; }
 .header button:disabled { opacity: .45; cursor: default; }
 .notice { margin-bottom: 14px; border: 1px solid #91b4d1; border-radius: 7px; padding: 11px 13px; background: #f5fbff; }
 .formCard, .concernsCard, .preview { margin-bottom: 18px; border: 1px solid #bdcad6; border-radius: 10px; padding: 20px; background: #fbfdff; box-shadow: 0 3px 12px rgba(24, 35, 45, .08); }
@@ -26,6 +25,9 @@
 .sectionTitle p { margin-top: 0; }
 .sectionTitle h2 { margin: 0; font: 800 26px/1 Georgia, serif; }
 .sectionTitle > span { color: #526477; font-size: 12px; }
+.concernTools { display: flex; align-items: center; justify-content: flex-end; gap: 10px; color: #526477; font-size: 12px; }
+.resetButton { min-height: 38px; border: 1px solid #9eafbf; border-radius: 6px; padding: 0 12px; background: #fff; color: #0b2d49; font-weight: 800; cursor: pointer; white-space: nowrap; }
+.resetButton:disabled { opacity: .45; cursor: default; }
 .concern { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid #d5dfe8; padding: 14px 0; }
 .concern small { color: #526477; font-weight: 800; text-transform: uppercase; }
 .concern p { margin: 4px 0 0; }
@@ -55,9 +57,10 @@
   .header h1 { font-size: 34px; }
   .headerActions { flex: 0 0 auto; }
   .header button { min-height: 46px; padding: 0 14px; font-size: 16px; }
-  .header .resetButton { max-width: 82px; padding: 0 8px; font-size: 13px; line-height: 1.1; }
   .fields { grid-template-columns: 1fr; }
   .notes { grid-column: auto; }
   .sectionTitle { align-items: flex-start; flex-direction: column; gap: 8px; }
+  .concernTools { width: 100%; align-items: flex-start; justify-content: space-between; }
+  .resetButton { min-height: 44px; font-size: 14px; }
   .concern { align-items: flex-start; }
 }
