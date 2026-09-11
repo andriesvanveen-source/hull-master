@@ -50,7 +50,7 @@
     top: 0;
     z-index: 20;
     align-items: center;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     margin: -10px -6px 20px;
     padding: 10px;
     border-bottom: 1px solid #bdcad6;
@@ -58,9 +58,9 @@
     box-shadow: 0 3px 10px rgba(24, 35, 45, .08);
     backdrop-filter: blur(10px);
   }
-  .nav > a { min-height: 44px; display: inline-flex; align-items: center; font-size: 16px; font-weight: 800; }
-  .actions { gap: 5px; }
-  .actions button { min-height: 44px; padding: 0 13px; font-size: 16px; }
+  .nav > a { flex: 0 0 auto; min-height: 52px; display: inline-flex; align-items: center; font-size: 18px; font-weight: 800; }
+  .actions { flex: 0 0 auto; flex-wrap: nowrap; gap: 5px; }
+  .actions button { min-height: 52px; padding: 0 11px; font-size: 17px; }
   .auditHeader { grid-template-columns: 1fr; gap: 12px; margin-inline: 4px; }
   .auditHeader p { margin: 0; }
   .tableWrap {
@@ -73,7 +73,8 @@
     touch-action: pan-x pan-y pinch-zoom;
   }
   .auditTable { width: 1030px; min-width: 1030px; zoom: 1; }
-  .auditTable th { white-space: normal; overflow-wrap: normal; word-break: normal; }
+  .auditTable thead th { position: sticky; top: 72px; z-index: 12; box-shadow: 0 1px 0 #bdcad6; }
+  .auditTable th { min-height: 48px; padding-block: 13px; white-space: normal; overflow-wrap: normal; word-break: normal; font-size: 13px; }
   .auditTable input, .auditTable textarea, .auditTable select { font-size: 16px; }
   .auditTable input, .auditTable textarea, .auditTable select, .auditTable button { touch-action: pan-x pan-y pinch-zoom; }
   .areaRow td > div { min-width: 100%; }

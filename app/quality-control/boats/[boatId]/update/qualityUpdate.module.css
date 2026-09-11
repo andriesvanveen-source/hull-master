@@ -52,11 +52,11 @@
     backdrop-filter: blur(10px);
   }
   .header > div:first-child { min-width: 0; }
-  .header a { font-size: 16px; }
+  .header a { display: inline-flex; min-height: 34px; align-items: center; font-size: 18px; font-weight: 800; }
   .header p { margin-top: 8px; }
-  .header h1 { font-size: 34px; }
+  .header h1 { font-size: 42px; }
   .headerActions { flex: 0 0 auto; }
-  .header button { min-height: 46px; padding: 0 14px; font-size: 16px; }
+  .header button { min-height: 54px; padding: 0 20px; font-size: 18px; }
   .fields { grid-template-columns: 1fr; }
   .notes { grid-column: auto; }
   .sectionTitle { align-items: flex-start; flex-direction: column; gap: 8px; }
