@@ -40,15 +40,19 @@
 
 @media (max-width: 680px) {
   .registerPage { width: min(100% - 24px, 920px); }
-  .topbar { align-items: flex-start; flex-direction: column; padding: 12px 0; }
+  .topbar { width: 100%; min-width: 0; align-items: flex-start; flex-direction: column; padding: 12px 0; }
+  .brand { min-width: 0; gap: 8px; font-size: 12px; letter-spacing: .12em; white-space: nowrap; }
+  .anchor { flex: 0 0 auto; font-size: 24px; }
   .topbarActions { width: 100%; justify-content: space-between; }
   .hero { align-items: center; padding-top: 36px; }
   .newBoatForm { grid-template-columns: 1fr 1fr; }
   .newBoatForm input { grid-column: 1 / -1; }
-  .modelFilter { flex-wrap: nowrap; gap: 7px; overflow-x: auto; padding-bottom: 2px; }
+  .modelFilter { flex-wrap: wrap; gap: 7px; overflow: visible; padding-bottom: 2px; }
   .modelFilter > label { flex: 0 0 auto; }
-  .modelFilter select { flex: 0 0 92px; width: 92px; }
-  .auditTypeToggle, .modelFilter > button { flex: 0 0 auto; }
+  .modelFilter select { flex: 0 0 80px; width: 80px; }
+  .auditTypeToggle { flex: 0 0 auto; }
+  .auditTypeToggle button { padding: 0 9px; font-size: 12px; }
+  .modelFilter > button { flex: 0 0 auto; }
   .boatAuditLink { grid-template-columns: 1fr; gap: 7px; padding-right: 10px; }
   .boatCard span { justify-self: start; padding-right: 0; text-align: left; }
   .qcUpdateButton { min-height: 44px; margin-right: 12px; font-size: 16px; }
