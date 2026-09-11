@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { findQualityBoat, initializeQualityState, qualityAuditType, qualityHullNumber } from "../../../qualityControlStorage";
+import { findQualityBoat, initializeQualityState, qualityAuditType } from "../../../qualityControlStorage";
 import styles from "./qualityUpdate.module.css";
 
 function today() {
@@ -25,7 +25,6 @@ export default function QualityUpdatePage() {
   const [remaining, setRemaining] = useState("");
   const [completed, setCompleted] = useState("");
   const [callbacks, setCallbacks] = useState("");
-  const [signOffBoat, setSignOffBoat] = useState(false);
   const [sailSenseTotal, setSailSenseTotal] = useState("");
   const [sailSenseRemaining, setSailSenseRemaining] = useState("");
   const [sailSenseCompleted, setSailSenseCompleted] = useState("");
@@ -53,12 +52,11 @@ export default function QualityUpdatePage() {
     if (!boat) return "";
     if (isHandover) {
       const lines = [
-        `*${qualityHullNumber(boat)} Quality Report*`,
+        `*${boat.name} Quality Report*`,
         "",
         date,
         ""
       ];
-      if (signOffBoat) lines.push("Sign Off Boat", "");
       lines.push(
         `Overall SailSense Total - ${numberOrBlank(sailSenseTotal)}`,
         `SailSense Defects Remaining - ${numberOrBlank(sailSenseRemaining)}`,
@@ -114,7 +112,7 @@ export default function QualityUpdatePage() {
       });
     }
     return lines.join("\n");
-  }, [boat, callbacks, completed, concerns.length, date, effectiveExterior, effectiveInterior, effectiveRemaining, includedConcerns, isHandover, notes, sailSenseCompleted, sailSenseRemaining, sailSenseTotal, signOffBoat]);
+  }, [boat, callbacks, completed, concerns.length, date, effectiveExterior, effectiveInterior, effectiveRemaining, includedConcerns, isHandover, notes, sailSenseCompleted, sailSenseRemaining, sailSenseTotal]);
 
   async function copyMessage() {
     try {
@@ -150,7 +148,6 @@ export default function QualityUpdatePage() {
         </div>
         <div className={styles.fields}>
           <label>Date<input type="text" value={date} onChange={(event) => setDate(event.target.value)} /></label>
-          {isHandover ? <label className={styles.signOffField}><input type="checkbox" checked={signOffBoat} onChange={(event) => setSignOffBoat(event.target.checked)} /> Sign Off Boat</label> : null}
           {isHandover ? <>
             <label>Overall SailSense total<input inputMode="numeric" type="number" min="0" value={sailSenseTotal} onChange={(event) => setSailSenseTotal(event.target.value)} /></label>
             <label>SailSense defects remaining<input inputMode="numeric" type="number" min="0" value={sailSenseRemaining} onChange={(event) => setSailSenseRemaining(event.target.value)} /></label>
