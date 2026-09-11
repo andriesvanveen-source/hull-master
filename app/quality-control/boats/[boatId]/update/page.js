@@ -47,7 +47,7 @@ export default function QualityUpdatePage() {
   const message = useMemo(() => {
     if (!boat) return "";
     const lines = [
-      `*${boat.name} 3rd Audit Quality Report Update*`,
+      `*${boat.name} Quality Report Update*`,
       `Date: ${date}`,
       "",
       `Overall Defect Total - ${boat.defects.length}`,

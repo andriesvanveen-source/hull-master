@@ -39,6 +39,8 @@ Run these scripts in the Supabase SQL Editor as required:
 3. `supabase/pdf-signoff-schema.sql` — optional PDF job logging
 4. `supabase/stock-codes-schema.sql` — stock items, categories, access policies, and image bucket
 5. `supabase/harbour-audit-schema.sql` — shared harbour audits, defects, auditor names, and photo storage (new; run this before testing shared audits)
+6. `supabase/quality-control-schema.sql` — Quality Control tables and policies
+7. `supabase/quality-control-audit-data-B5.sql`, `B8.sql`, `B9.sql`, `C1.sql`, `C2.sql`, and `C5.sql` — run one model file at a time to rename the existing audits as QC3 and import the handover audits
 
 Harbour Audit and Stock Codes save locally first and then synchronize their records and images to Supabase. Existing Harbour Audit browser data is retained as a migration backup and uploaded only after the shared schema is available.
 

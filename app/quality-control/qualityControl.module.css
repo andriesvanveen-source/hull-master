@@ -10,10 +10,10 @@
 .kicker { margin: 0 0 10px; color: #526477; font: 700 12px/1 "Courier New", monospace; letter-spacing: .22em; text-transform: uppercase; }
 .hero h1 { margin: 0; font-family: Georgia, serif; font-size: clamp(52px, 11vw, 72px); line-height: .9; }
 .newAuditButton { gap: 8px; }
-.newBoatForm { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; margin-bottom: 18px; padding: 16px; border: 1px solid #bdcad6; border-radius: 8px; background: #fbfdff; }
-.newBoatForm input { min-width: 0; min-height: 40px; border: 1px solid #bdcad6; border-radius: 6px; padding: 0 11px; color: #0b2d49; background: #fff; }
+.newBoatForm { display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; margin-bottom: 18px; padding: 16px; border: 1px solid #bdcad6; border-radius: 8px; background: #fbfdff; }
+.newBoatForm input, .newBoatForm select { min-width: 0; min-height: 40px; border: 1px solid #bdcad6; border-radius: 6px; padding: 0 11px; color: #0b2d49; background: #fff; }
 .newBoatForm .secondaryButton { border-color: #bdcad6; background: #fff; color: #0b2d49; }
-.modelFilter { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.modelFilter { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
 .modelFilter label { color: #526477; font: 700 11px/1 "Courier New", monospace; letter-spacing: .14em; text-transform: uppercase; }
 .modelFilter select { min-width: 150px; min-height: 40px; border: 1px solid #bdcad6; border-radius: 6px; padding: 0 10px; background: #fff; color: #0b2d49; }
 .modelFilter button { min-height: 40px; border: 1px solid #0b2d49; border-radius: 7px; padding: 0 14px; background: #fff; color: #0b2d49; font-weight: 800; cursor: pointer; }
@@ -26,7 +26,7 @@
 .boatAuditLink { display: grid; grid-template-columns: 150px 1fr; align-items: center; gap: 16px; padding: 18px; color: inherit; text-decoration: none; }
 .boatAuditLink:hover { background: #f0f5f9; }
 .boatCard strong { font: 800 24px/1 Georgia, serif; }
-.boatCard span { color: #394b5c; font-size: 14px; }
+.boatCard span { justify-self: end; padding-right: 28px; color: #394b5c; font-size: 14px; text-align: right; }
 .boatCard small { color: #526477; font-size: 12px; }
 .qcUpdateButton { margin-right: 18px; border: 1px solid #0b2d49; border-radius: 7px; padding: 10px 13px; background: #fff; color: #0b2d49; font-size: 13px; font-weight: 800; text-decoration: none; white-space: nowrap; }
 .qcUpdateButton:hover { background: #0b2d49; color: #fff; }
@@ -40,5 +40,6 @@
   .newBoatForm { grid-template-columns: 1fr 1fr; }
   .newBoatForm input { grid-column: 1 / -1; }
   .boatAuditLink { grid-template-columns: 1fr; gap: 7px; padding-right: 10px; }
+  .boatCard span { justify-self: start; padding-right: 0; text-align: left; }
   .qcUpdateButton { min-height: 44px; margin-right: 12px; font-size: 16px; }
 }

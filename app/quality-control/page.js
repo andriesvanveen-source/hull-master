@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import HomeBackButton from "../components/HomeBackButton";
 import styles from "./qualityControl.module.css";
 import { exportQualityWorkbook } from "./qualityControlExport";
-import { QUALITY_BOAT_MODELS, clearDeletedQualityBoat, createQualityBoat, flushQualityState, hydrateQualityReferenceAudits, initializeQualityState, loadQualityState, markQualityBoatSynced, mergeQualityStates } from "./qualityControlStorage";
+import { QUALITY_BOAT_MODELS, clearDeletedQualityBoat, createQualityBoat, flushQualityState, hydrateQualityReferenceAudits, initializeQualityState, loadQualityState, markQualityBoatSynced, mergeQualityStates, qualityAuditType, qualityHullNumber } from "./qualityControlStorage";
 import { deleteSharedQualityBoat, loadSharedQualityBoats, subscribeToQualityControlChanges, syncQualityBoat } from "../../lib/qualityControlSupabase";
 
 export default function QualityControlPage() {
@@ -16,6 +16,8 @@ export default function QualityControlPage() {
   const [error, setError] = useState("");
   const [syncStatus, setSyncStatus] = useState("Loading saved audits...");
   const [selectedModel, setSelectedModel] = useState("all");
+  const [selectedAuditType, setSelectedAuditType] = useState("all");
+  const [newAuditType, setNewAuditType] = useState("QC3");
   const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
@@ -74,28 +76,31 @@ export default function QualityControlPage() {
     () => state.boats.reduce((total, boat) => total + boat.defects.length, 0),
     [state.boats]
   );
-  const visibleBoats = useMemo(() => [...(selectedModel === "all" ? state.boats : state.boats.filter((boat) => (boat.model || boat.name.slice(0, 2)) === selectedModel))].sort((a, b) => String(b.name || "").localeCompare(String(a.name || ""), undefined, { numeric: true, sensitivity: "base" })), [selectedModel, state.boats]);
+  const visibleBoats = useMemo(() => state.boats.filter((boat) => (selectedModel === "all" || (boat.model || qualityHullNumber(boat).slice(0, 2)) === selectedModel) && (selectedAuditType === "all" || qualityAuditType(boat) === selectedAuditType)).sort((a, b) => String(b.name || "").localeCompare(String(a.name || ""), undefined, { numeric: true, sensitivity: "base" })), [selectedAuditType, selectedModel, state.boats]);
 
   function addBoat(event) {
     event.preventDefault();
     const normalizedName = name.trim().toUpperCase();
     if (!normalizedName) return setError("Enter a hull number.");
     if (!QUALITY_BOAT_MODELS.includes(normalizedName.slice(0, 2))) return setError("Use a B5, B8, B9, C1, C2 or C5 hull number.");
-    if (state.boats.some((boat) => boat.name === normalizedName)) return setError(`${normalizedName} already exists.`);
-    const nextState = createQualityBoat(normalizedName);
+    const fullName = `${normalizedName}_${newAuditType === "HO" ? "HO_Audit" : "QC3"}`;
+    if (state.boats.some((boat) => boat.name === fullName)) return setError(`${fullName} already exists.`);
+    const nextState = createQualityBoat(normalizedName, newAuditType);
     setState(nextState);
     setName("");
     setShowForm(false);
     setError("");
     setSyncStatus("Saved locally — syncing...");
-    const boat = nextState.boats.find((entry) => entry.name === normalizedName);
+    const boat = nextState.boats.find((entry) => entry.name === fullName);
     flushQualityState().then(() => syncQualityBoat(boat)).then(() => { const synced = markQualityBoatSynced(boat.id); setState(synced); setSyncStatus("All audits synced"); }).catch((syncError) => { setSyncStatus("Saved locally — waiting to sync"); setError(syncError.message || "The new audit is safely stored locally and will retry syncing."); });
   }
 
   async function exportVisibleBoats() {
     if (!visibleBoats.length) return setError("There are no boats in this filter to export.");
     setIsExporting(true);
-    try { await exportQualityWorkbook(visibleBoats, `Quality Control - ${selectedModel === "all" ? "All boats" : selectedModel}.xlsx`); setError(""); }
+    const modelLabel = selectedModel === "all" ? "All boats" : selectedModel;
+    const auditLabel = selectedAuditType === "all" ? "All audit types" : selectedAuditType === "HO" ? "HO Audit" : "QC3";
+    try { await exportQualityWorkbook(visibleBoats, `Quality Control - ${modelLabel} - ${auditLabel}.xlsx`); setError(""); }
     catch (exportError) { setError(exportError.message || "Could not export the selected boats."); }
     finally { setIsExporting(false); }
   }
@@ -125,6 +130,7 @@ export default function QualityControlPage() {
         {showForm ? (
           <form className={styles.newBoatForm} onSubmit={addBoat}>
             <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Hull number" aria-label="Hull number" autoFocus />
+            <select value={newAuditType} onChange={(event) => setNewAuditType(event.target.value)} aria-label="Audit type"><option value="QC3">QC3</option><option value="HO">HO Audit</option></select>
             <button type="submit">Add</button>
             <button type="button" className={styles.secondaryButton} onClick={() => setShowForm(false)}>Cancel</button>
           </form>
@@ -135,6 +141,10 @@ export default function QualityControlPage() {
           <select id="qualityModelFilter" value={selectedModel} onChange={(event) => setSelectedModel(event.target.value)}>
             <option value="all">All boats</option>
             {QUALITY_BOAT_MODELS.map((model) => <option key={model} value={model}>{model}</option>)}
+          </select>
+          <label htmlFor="qualityAuditTypeFilter">Audit type</label>
+          <select id="qualityAuditTypeFilter" value={selectedAuditType} onChange={(event) => setSelectedAuditType(event.target.value)}>
+            <option value="all">All audit types</option><option value="QC3">QC3</option><option value="HO">HO Audit</option>
           </select>
           <button type="button" onClick={exportVisibleBoats} disabled={isExporting || !visibleBoats.length}>{isExporting ? "Exporting..." : "Export selected"}</button>
         </div>

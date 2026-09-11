@@ -5,7 +5,7 @@ export const QUALITY_CODE_DISCIPLINES = { 1: "Gelcoat", 2: "Flowcoat", 3: "Joine
 export const QUALITY_BOAT_MODELS = ["B5", "B8", "B9", "C1", "C2", "C5"];
 export const QUALITY_REFERENCE_BOATS = ["B5152", "B5153", "B5154", "B5155", "B5156", "B8126", "B8127", "B8128", "B8129", "B8130", "B9074", "B9075", "B9076", "B9077", "B9078", "C1071", "C1073", "C1074", "C1075", "C1076", "C2022", "C2023", "C2024", "C2025", "C2026", "C5001", "C5002", "C5003", "C5004", "C5005"];
 const REFERENCE_SEED_VERSION = 1;
-const REFERENCE_DATA_VERSION = 3;
+const REFERENCE_DATA_VERSION = 4;
 const QUALITY_DATABASE_NAME = "hull-master-quality-control";
 const QUALITY_DATABASE_VERSION = 1;
 const QUALITY_STORE_NAME = "state";
@@ -15,7 +15,9 @@ let databasePromise = null;
 let pendingWrite = Promise.resolve();
 
 function makeId(prefix = "qc") { return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`; }
-function createReferenceBoat(name) { const now = new Date().toISOString(); return { id: `qc-reference-${name.toLowerCase()}`, name, model: name.slice(0, 2), areas: [], areaInspectors: {}, completedAreas: [], defects: [], pendingSync: false, deletedDefectIds: [], deletedAreaNames: [], createdAt: now, updatedAt: now }; }
+function auditTypeFromName(name) { return /_HO_Audit$/i.test(name || "") ? "HO" : "QC3"; }
+function hullFromName(name) { return String(name || "").replace(/_(QC3|HO_Audit)$/i, ""); }
+function createReferenceBoat(hull) { const now = new Date().toISOString(); return { id: `qc-reference-${hull.toLowerCase()}`, name: `${hull}_QC3`, model: hull.slice(0, 2), auditType: "QC3", areas: [], areaInspectors: {}, completedAreas: [], defects: [], pendingSync: false, deletedDefectIds: [], deletedAreaNames: [], createdAt: now, updatedAt: now }; }
 
 function compareBoatsDescending(a, b) { return String(b.name || "").localeCompare(String(a.name || ""), undefined, { numeric: true, sensitivity: "base" }); }
 
@@ -79,7 +81,9 @@ async function persistQualityState(state) {
 function migrateQualityState(state) {
   const boats = (state.boats || []).filter((boat) => boat.id !== "generic-quality-audit").map((boat) => ({
     ...boat,
-    model: boat.model || String(boat.name || "").slice(0, 2),
+    name: boat.id?.startsWith("qc-reference-") && !/_(QC3|HO_Audit)$/i.test(boat.name || "") ? `${boat.name}_QC3` : boat.name,
+    model: boat.model || hullFromName(boat.name).slice(0, 2),
+    auditType: boat.auditType || auditTypeFromName(boat.name),
     areaInspectors: boat.areaInspectors || {},
     defects: (boat.defects || []).map((defect) => ({ ...defect, concern: Boolean(defect.concern), discipline: QUALITY_CODE_DISCIPLINES[Number(defect.code)] || defect.discipline || "" })),
     pendingSync: boat.id?.startsWith("qc-reference-") && !(boat.areas || []).length && !(boat.defects || []).length ? false : Boolean(boat.pendingSync),
@@ -87,8 +91,8 @@ function migrateQualityState(state) {
     deletedAreaNames: boat.deletedAreaNames || []
   }));
   if ((state.referenceSeedVersion || 0) < REFERENCE_SEED_VERSION) {
-    const names = new Set(boats.map((boat) => boat.name));
-    QUALITY_REFERENCE_BOATS.forEach((name) => { if (!names.has(name)) boats.push(createReferenceBoat(name)); });
+    const ids = new Set(boats.map((boat) => boat.id));
+    QUALITY_REFERENCE_BOATS.forEach((name) => { if (!ids.has(`qc-reference-${name.toLowerCase()}`)) boats.push(createReferenceBoat(name)); });
   }
   return { ...state, boats, deletedBoatIds: state.deletedBoatIds || [], referenceSeedVersion: REFERENCE_SEED_VERSION };
 }
@@ -129,7 +133,9 @@ export function hydrateQualityReferenceAudits(referenceAudits) {
     byId.set(reference.id, {
       ...reference,
       ...existing,
+      name: reference.name,
       model: reference.model,
+      auditType: reference.auditType || auditTypeFromName(reference.name),
       areas: [...new Set([...(reference.areas || []), ...(existing.areas || [])])],
       areaInspectors: { ...(reference.areaInspectors || {}), ...Object.fromEntries(Object.entries(existing.areaInspectors || {}).filter(([, inspector]) => String(inspector || "").trim())) },
       defects: [...(reference.defects || []).filter((defect) => !existingDefectIds.has(defect.id)), ...(existing.defects || [])],
@@ -140,10 +146,11 @@ export function hydrateQualityReferenceAudits(referenceAudits) {
   });
   return saveQualityState({ ...state, boats: [...byId.values()].sort(compareBoatsDescending), referenceDataVersion: REFERENCE_DATA_VERSION });
 }
-export function createQualityBoat(name) {
+export function createQualityBoat(hull, auditType = "QC3") {
   const state = loadQualityState();
   const now = new Date().toISOString();
-  state.boats.unshift({ id: makeId("boat"), name, model: name.slice(0, 2), areas: [], areaInspectors: {}, completedAreas: [], defects: [], pendingSync: true, deletedDefectIds: [], deletedAreaNames: [], createdAt: now, updatedAt: now });
+  const name = `${hull}_${auditType === "HO" ? "HO_Audit" : "QC3"}`;
+  state.boats.unshift({ id: makeId("boat"), name, model: hull.slice(0, 2), auditType, areas: [], areaInspectors: {}, completedAreas: [], defects: [], pendingSync: true, deletedDefectIds: [], deletedAreaNames: [], createdAt: now, updatedAt: now });
   return saveQualityState(state);
 }
 export function updateQualityBoat(nextBoat) {
@@ -171,5 +178,7 @@ export function mergeQualityStates(localState, remoteBoats, options = {}) {
   return saveQualityState({ ...localState, boats: [...merged.values()].sort(compareBoatsDescending) });
 }
 export function findQualityBoat(boatId) { return loadQualityState().boats.find((boat) => boat.id === boatId) || null; }
+export function qualityAuditType(boat) { return boat?.auditType || auditTypeFromName(boat?.name); }
+export function qualityHullNumber(boat) { return hullFromName(boat?.name); }
 export function codeDiscipline(code) { return QUALITY_CODE_DISCIPLINES[Number(code)] || ""; }
 export function newQualityDefect(values) { const now = new Date().toISOString(); return { id: makeId("defect"), ...values, createdAt: now, updatedAt: now }; }

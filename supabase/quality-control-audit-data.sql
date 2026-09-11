@@ -1,0 +1,7 @@
+-- Run one model file at a time after quality-control-schema.sql.
+-- quality-control-audit-data-B5.sql: 5 HO audits, 362 HO defects
+-- quality-control-audit-data-B8.sql: 4 HO audits, 353 HO defects
+-- quality-control-audit-data-B9.sql: 5 HO audits, 301 HO defects
+-- quality-control-audit-data-C1.sql: 5 HO audits, 623 HO defects
+-- quality-control-audit-data-C2.sql: 5 HO audits, 341 HO defects
+-- quality-control-audit-data-C5.sql: 5 HO audits, 384 HO defects

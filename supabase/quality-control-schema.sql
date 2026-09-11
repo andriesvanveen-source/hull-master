@@ -101,19 +101,19 @@ do $$ begin alter publication supabase_realtime add table public.quality_control
 do $$ begin alter publication supabase_realtime add table public.quality_control_defects; exception when duplicate_object then null; end $$;
 
 insert into public.quality_control_boats (id, name, model) values
-  ('qc-reference-b5152','B5152','B5'), ('qc-reference-b5153','B5153','B5'),
-  ('qc-reference-b5154','B5154','B5'), ('qc-reference-b5155','B5155','B5'),
-  ('qc-reference-b5156','B5156','B5'), ('qc-reference-b8126','B8126','B8'),
-  ('qc-reference-b8127','B8127','B8'), ('qc-reference-b8128','B8128','B8'),
-  ('qc-reference-b8129','B8129','B8'), ('qc-reference-b8130','B8130','B8'),
-  ('qc-reference-b9074','B9074','B9'), ('qc-reference-b9075','B9075','B9'),
-  ('qc-reference-b9076','B9076','B9'), ('qc-reference-b9077','B9077','B9'),
-  ('qc-reference-b9078','B9078','B9'), ('qc-reference-c1071','C1071','C1'),
-  ('qc-reference-c1073','C1073','C1'), ('qc-reference-c1074','C1074','C1'),
-  ('qc-reference-c1075','C1075','C1'), ('qc-reference-c1076','C1076','C1'),
-  ('qc-reference-c2022','C2022','C2'), ('qc-reference-c2023','C2023','C2'),
-  ('qc-reference-c2024','C2024','C2'), ('qc-reference-c2025','C2025','C2'),
-  ('qc-reference-c2026','C2026','C2'), ('qc-reference-c5001','C5001','C5'),
-  ('qc-reference-c5002','C5002','C5'), ('qc-reference-c5003','C5003','C5'),
-  ('qc-reference-c5004','C5004','C5'), ('qc-reference-c5005','C5005','C5')
+  ('qc-reference-b5152','B5152_QC3','B5'), ('qc-reference-b5153','B5153_QC3','B5'),
+  ('qc-reference-b5154','B5154_QC3','B5'), ('qc-reference-b5155','B5155_QC3','B5'),
+  ('qc-reference-b5156','B5156_QC3','B5'), ('qc-reference-b8126','B8126_QC3','B8'),
+  ('qc-reference-b8127','B8127_QC3','B8'), ('qc-reference-b8128','B8128_QC3','B8'),
+  ('qc-reference-b8129','B8129_QC3','B8'), ('qc-reference-b8130','B8130_QC3','B8'),
+  ('qc-reference-b9074','B9074_QC3','B9'), ('qc-reference-b9075','B9075_QC3','B9'),
+  ('qc-reference-b9076','B9076_QC3','B9'), ('qc-reference-b9077','B9077_QC3','B9'),
+  ('qc-reference-b9078','B9078_QC3','B9'), ('qc-reference-c1071','C1071_QC3','C1'),
+  ('qc-reference-c1073','C1073_QC3','C1'), ('qc-reference-c1074','C1074_QC3','C1'),
+  ('qc-reference-c1075','C1075_QC3','C1'), ('qc-reference-c1076','C1076_QC3','C1'),
+  ('qc-reference-c2022','C2022_QC3','C2'), ('qc-reference-c2023','C2023_QC3','C2'),
+  ('qc-reference-c2024','C2024_QC3','C2'), ('qc-reference-c2025','C2025_QC3','C2'),
+  ('qc-reference-c2026','C2026_QC3','C2'), ('qc-reference-c5001','C5001_QC3','C5'),
+  ('qc-reference-c5002','C5002_QC3','C5'), ('qc-reference-c5003','C5003_QC3','C5'),
+  ('qc-reference-c5004','C5004_QC3','C5'), ('qc-reference-c5005','C5005_QC3','C5')
 on conflict (id) do update set name = excluded.name, model = excluded.model;
