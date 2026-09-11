@@ -14,6 +14,8 @@ function numberOrBlank(value) {
   return value === "" ? "___" : value;
 }
 
+const CONCERNS_HEADING = "🚨 *Concerns Remaining* 🚨";
+
 export default function QualityUpdatePage() {
   const { boatId } = useParams();
   const [boat, setBoat] = useState(null);
@@ -71,7 +73,7 @@ export default function QualityUpdatePage() {
       );
       if (notes.trim()) lines.push("", "Additional Notes:", notes.trim());
       if (includedConcerns.length) {
-        lines.push("", "🚨🚨 *Concerns* 🚨🚨");
+        lines.push("", CONCERNS_HEADING);
         let currentArea = "";
         includedConcerns.forEach((defect, index) => {
           if (defect.area !== currentArea) {
@@ -101,7 +103,7 @@ export default function QualityUpdatePage() {
       `Number of Callbacks - ${numberOrBlank(callbacks)}`
     );
     if (includedConcerns.length) {
-      lines.push("", "🚨🚨 *Remaining Concerns* 🚨🚨");
+      lines.push("", CONCERNS_HEADING);
       let currentArea = "";
       includedConcerns.forEach((defect, index) => {
         if (defect.area !== currentArea) {
