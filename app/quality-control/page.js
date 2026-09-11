@@ -16,7 +16,7 @@ export default function QualityControlPage() {
   const [error, setError] = useState("");
   const [syncStatus, setSyncStatus] = useState("Loading saved audits...");
   const [selectedModel, setSelectedModel] = useState("all");
-  const [selectedAuditType, setSelectedAuditType] = useState("all");
+  const [selectedAuditType, setSelectedAuditType] = useState("QC3");
   const [newAuditType, setNewAuditType] = useState("QC3");
   const [isExporting, setIsExporting] = useState(false);
 
@@ -51,7 +51,7 @@ export default function QualityControlPage() {
     async function bootstrap() {
       const localState = await initializeQualityState();
       if (mounted) { setState(localState); setLoaded(true); }
-      if ((loadQualityState().referenceDataVersion || 0) < 3) {
+      if ((loadQualityState().referenceDataVersion || 0) < 5) {
         try {
           const response = await fetch("/quality-control/reference-audits.json");
           if (!response.ok) throw new Error("Reference audits could not be loaded.");
@@ -76,7 +76,7 @@ export default function QualityControlPage() {
     () => state.boats.reduce((total, boat) => total + boat.defects.length, 0),
     [state.boats]
   );
-  const visibleBoats = useMemo(() => state.boats.filter((boat) => (selectedModel === "all" || (boat.model || qualityHullNumber(boat).slice(0, 2)) === selectedModel) && (selectedAuditType === "all" || qualityAuditType(boat) === selectedAuditType)).sort((a, b) => String(b.name || "").localeCompare(String(a.name || ""), undefined, { numeric: true, sensitivity: "base" })), [selectedAuditType, selectedModel, state.boats]);
+  const visibleBoats = useMemo(() => state.boats.filter((boat) => (selectedModel === "all" || (boat.model || qualityHullNumber(boat).slice(0, 2)) === selectedModel) && qualityAuditType(boat) === selectedAuditType).sort((a, b) => String(b.name || "").localeCompare(String(a.name || ""), undefined, { numeric: true, sensitivity: "base" })), [selectedAuditType, selectedModel, state.boats]);
 
   function addBoat(event) {
     event.preventDefault();
@@ -99,7 +99,7 @@ export default function QualityControlPage() {
     if (!visibleBoats.length) return setError("There are no boats in this filter to export.");
     setIsExporting(true);
     const modelLabel = selectedModel === "all" ? "All boats" : selectedModel;
-    const auditLabel = selectedAuditType === "all" ? "All audit types" : selectedAuditType === "HO" ? "HO Audit" : "QC3";
+    const auditLabel = selectedAuditType === "HO" ? "HO Audit" : "QC3";
     try { await exportQualityWorkbook(visibleBoats, `Quality Control - ${modelLabel} - ${auditLabel}.xlsx`); setError(""); }
     catch (exportError) { setError(exportError.message || "Could not export the selected boats."); }
     finally { setIsExporting(false); }
@@ -116,7 +116,6 @@ export default function QualityControlPage() {
         <header className={styles.topbar}>
           <div className={styles.brand}><span className={styles.anchor} aria-hidden="true">⚓</span><span>Quality Control Log</span></div>
           <div className={styles.topbarActions}>
-            <span>{state.boats.length} {state.boats.length === 1 ? "hull" : "hulls"}</span>
             <Link className={styles.standardButton} href="/quality-control/standard">Quality Standard</Link>
           </div>
         </header>
@@ -142,10 +141,11 @@ export default function QualityControlPage() {
             <option value="all">All boats</option>
             {QUALITY_BOAT_MODELS.map((model) => <option key={model} value={model}>{model}</option>)}
           </select>
-          <label htmlFor="qualityAuditTypeFilter">Audit type</label>
-          <select id="qualityAuditTypeFilter" value={selectedAuditType} onChange={(event) => setSelectedAuditType(event.target.value)}>
-            <option value="all">All audit types</option><option value="QC3">QC3</option><option value="HO">HO Audit</option>
-          </select>
+          <fieldset className={styles.auditTypeToggle} aria-label="Audit type">
+            <legend>Audit type</legend>
+            <button type="button" className={selectedAuditType === "QC3" ? styles.activeToggle : ""} aria-pressed={selectedAuditType === "QC3"} onClick={() => setSelectedAuditType("QC3")}>QC3 audit</button>
+            <button type="button" className={selectedAuditType === "HO" ? styles.activeToggle : ""} aria-pressed={selectedAuditType === "HO"} onClick={() => setSelectedAuditType("HO")}>Handover audit</button>
+          </fieldset>
           <button type="button" onClick={exportVisibleBoats} disabled={isExporting || !visibleBoats.length}>{isExporting ? "Exporting..." : "Export selected"}</button>
         </div>
 

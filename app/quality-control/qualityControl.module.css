@@ -15,8 +15,14 @@
 .newBoatForm .secondaryButton { border-color: #bdcad6; background: #fff; color: #0b2d49; }
 .modelFilter { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
 .modelFilter label { color: #526477; font: 700 11px/1 "Courier New", monospace; letter-spacing: .14em; text-transform: uppercase; }
-.modelFilter select { min-width: 150px; min-height: 40px; border: 1px solid #bdcad6; border-radius: 6px; padding: 0 10px; background: #fff; color: #0b2d49; }
+.modelFilter select { width: 112px; min-height: 40px; border: 1px solid #bdcad6; border-radius: 6px; padding: 0 10px; background: #fff; color: #0b2d49; }
 .modelFilter button { min-height: 40px; border: 1px solid #0b2d49; border-radius: 7px; padding: 0 14px; background: #fff; color: #0b2d49; font-weight: 800; cursor: pointer; }
+.auditTypeToggle { display: flex; align-items: center; gap: 0; margin: 0; border: 0; padding: 0; }
+.auditTypeToggle legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.auditTypeToggle button { border-radius: 0; }
+.auditTypeToggle button:first-of-type { border-radius: 7px 0 0 7px; }
+.auditTypeToggle button:last-of-type { margin-left: -1px; border-radius: 0 7px 7px 0; }
+.auditTypeToggle button.activeToggle { position: relative; z-index: 1; background: #0b2d49; color: #fff; }
 .modelFilter button:disabled { opacity: .55; cursor: wait; }
 .summary { margin-bottom: 12px; color: #526477; font: 12px/1.4 "Courier New", monospace; }
 .alert { margin-bottom: 14px; border: 1px solid #d7aaa5; border-radius: 7px; padding: 11px 13px; background: #fff0ed; color: #8f2118; }
@@ -39,6 +45,10 @@
   .hero { align-items: center; padding-top: 36px; }
   .newBoatForm { grid-template-columns: 1fr 1fr; }
   .newBoatForm input { grid-column: 1 / -1; }
+  .modelFilter { flex-wrap: nowrap; gap: 7px; overflow-x: auto; padding-bottom: 2px; }
+  .modelFilter > label { flex: 0 0 auto; }
+  .modelFilter select { flex: 0 0 92px; width: 92px; }
+  .auditTypeToggle, .modelFilter > button { flex: 0 0 auto; }
   .boatAuditLink { grid-template-columns: 1fr; gap: 7px; padding-right: 10px; }
   .boatCard span { justify-self: start; padding-right: 0; text-align: left; }
   .qcUpdateButton { min-height: 44px; margin-right: 12px; font-size: 16px; }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { findQualityBoat, initializeQualityState } from "../../../qualityControlStorage";
+import { findQualityBoat, initializeQualityState, qualityAuditType, qualityHullNumber } from "../../../qualityControlStorage";
 import styles from "./qualityUpdate.module.css";
 
 function today() {
@@ -25,6 +25,10 @@ export default function QualityUpdatePage() {
   const [remaining, setRemaining] = useState("");
   const [completed, setCompleted] = useState("");
   const [callbacks, setCallbacks] = useState("");
+  const [signOffBoat, setSignOffBoat] = useState(false);
+  const [sailSenseTotal, setSailSenseTotal] = useState("");
+  const [sailSenseRemaining, setSailSenseRemaining] = useState("");
+  const [sailSenseCompleted, setSailSenseCompleted] = useState("");
   const [excludedConcernIds, setExcludedConcernIds] = useState([]);
   const [copyStatus, setCopyStatus] = useState("");
 
@@ -36,6 +40,7 @@ export default function QualityUpdatePage() {
   }, [boatId]);
 
   const concerns = useMemo(() => (boat?.defects || []).filter((defect) => defect.concern), [boat]);
+  const isHandover = qualityAuditType(boat) === "HO";
   const includedConcerns = concerns.filter((defect) => !excludedConcernIds.includes(defect.id));
   const suggestedExterior = remaining !== "" && interior !== "" ? Math.max(0, Number(remaining) - Number(interior)) : "";
   const suggestedInterior = remaining !== "" && exterior !== "" ? Math.max(0, Number(remaining) - Number(exterior)) : "";
@@ -46,6 +51,40 @@ export default function QualityUpdatePage() {
 
   const message = useMemo(() => {
     if (!boat) return "";
+    if (isHandover) {
+      const lines = [
+        `*${qualityHullNumber(boat)} Quality Report*`,
+        "",
+        date,
+        ""
+      ];
+      if (signOffBoat) lines.push("Sign Off Boat", "");
+      lines.push(
+        `Overall SailSense Total - ${numberOrBlank(sailSenseTotal)}`,
+        `SailSense Defects Remaining - ${numberOrBlank(sailSenseRemaining)}`,
+        `SailSense Defects Completed - ${numberOrBlank(sailSenseCompleted)}`,
+        "",
+        `Overall Cosmetic List - ${boat.defects.length}`,
+        `Interior - ${numberOrBlank(effectiveInterior)}`,
+        `Exterior - ${numberOrBlank(effectiveExterior)}`,
+        `Defects Remaining - ${numberOrBlank(effectiveRemaining)}`,
+        `Defects Completed - ${numberOrBlank(completed)}`,
+        `Callbacks - ${numberOrBlank(callbacks)}`
+      );
+      if (notes.trim()) lines.push("", "Additional Notes:", notes.trim());
+      if (includedConcerns.length) {
+        lines.push("", "🚨🚨 *Concerns* 🚨🚨");
+        let currentArea = "";
+        includedConcerns.forEach((defect, index) => {
+          if (defect.area !== currentArea) {
+            currentArea = defect.area;
+            lines.push("", currentArea);
+          }
+          lines.push(`${index + 1}. ${defect.description || defect.failure || defect.item}`);
+        });
+      }
+      return lines.join("\n");
+    }
     const lines = [
       `*${boat.name} Quality Report Update*`,
       `Date: ${date}`,
@@ -75,7 +114,7 @@ export default function QualityUpdatePage() {
       });
     }
     return lines.join("\n");
-  }, [boat, callbacks, completed, concerns.length, date, effectiveExterior, effectiveInterior, effectiveRemaining, includedConcerns, notes]);
+  }, [boat, callbacks, completed, concerns.length, date, effectiveExterior, effectiveInterior, effectiveRemaining, includedConcerns, isHandover, notes, sailSenseCompleted, sailSenseRemaining, sailSenseTotal, signOffBoat]);
 
   async function copyMessage() {
     try {
@@ -106,16 +145,22 @@ export default function QualityUpdatePage() {
 
       <section className={styles.formCard}>
         <div className={styles.totals}>
-          <div><span>Total defects</span><strong>{boat.defects.length}</strong></div>
+          <div><span>{isHandover ? "Cosmetic defects" : "Total defects"}</span><strong>{boat.defects.length}</strong></div>
           <div><span>Total concerns</span><strong>{concerns.length}</strong></div>
         </div>
         <div className={styles.fields}>
           <label>Date<input type="text" value={date} onChange={(event) => setDate(event.target.value)} /></label>
-          <label>Total defects remaining<input className={remaining === "" && effectiveRemaining !== "" ? styles.calculated : ""} inputMode="numeric" type="number" min="0" value={effectiveRemaining} onFocus={(event) => { if (remaining === "" && effectiveRemaining !== "") event.target.select(); }} onChange={(event) => setRemaining(event.target.value)} /></label>
-          <label>Interior defects remaining<input className={interior === "" && effectiveInterior !== "" ? styles.calculated : ""} inputMode="numeric" type="number" min="0" value={effectiveInterior} onFocus={(event) => { if (interior === "" && effectiveInterior !== "") event.target.select(); }} onChange={(event) => setInterior(event.target.value)} /></label>
-          <label>Exterior defects remaining<input className={exterior === "" && effectiveExterior !== "" ? styles.calculated : ""} inputMode="numeric" type="number" min="0" value={effectiveExterior} onFocus={(event) => { if (exterior === "" && effectiveExterior !== "") event.target.select(); }} onChange={(event) => setExterior(event.target.value)} /></label>
-          <label>Defects completed from previous update<input inputMode="numeric" type="number" min="0" value={completed} onChange={(event) => setCompleted(event.target.value)} /></label>
-          <label>Number of callbacks<input inputMode="numeric" type="number" min="0" value={callbacks} onChange={(event) => setCallbacks(event.target.value)} /></label>
+          {isHandover ? <label className={styles.signOffField}><input type="checkbox" checked={signOffBoat} onChange={(event) => setSignOffBoat(event.target.checked)} /> Sign Off Boat</label> : null}
+          {isHandover ? <>
+            <label>Overall SailSense total<input inputMode="numeric" type="number" min="0" value={sailSenseTotal} onChange={(event) => setSailSenseTotal(event.target.value)} /></label>
+            <label>SailSense defects remaining<input inputMode="numeric" type="number" min="0" value={sailSenseRemaining} onChange={(event) => setSailSenseRemaining(event.target.value)} /></label>
+            <label>SailSense defects completed<input inputMode="numeric" type="number" min="0" value={sailSenseCompleted} onChange={(event) => setSailSenseCompleted(event.target.value)} /></label>
+          </> : null}
+          <label>{isHandover ? "Cosmetic defects remaining" : "Total defects remaining"}<input className={remaining === "" && effectiveRemaining !== "" ? styles.calculated : ""} inputMode="numeric" type="number" min="0" value={effectiveRemaining} onFocus={(event) => { if (remaining === "" && effectiveRemaining !== "") event.target.select(); }} onChange={(event) => setRemaining(event.target.value)} /></label>
+          <label>{isHandover ? "Interior" : "Interior defects remaining"}<input className={interior === "" && effectiveInterior !== "" ? styles.calculated : ""} inputMode="numeric" type="number" min="0" value={effectiveInterior} onFocus={(event) => { if (interior === "" && effectiveInterior !== "") event.target.select(); }} onChange={(event) => setInterior(event.target.value)} /></label>
+          <label>{isHandover ? "Exterior" : "Exterior defects remaining"}<input className={exterior === "" && effectiveExterior !== "" ? styles.calculated : ""} inputMode="numeric" type="number" min="0" value={effectiveExterior} onFocus={(event) => { if (exterior === "" && effectiveExterior !== "") event.target.select(); }} onChange={(event) => setExterior(event.target.value)} /></label>
+          <label>{isHandover ? "Cosmetic defects completed" : "Defects completed from previous update"}<input inputMode="numeric" type="number" min="0" value={completed} onChange={(event) => setCompleted(event.target.value)} /></label>
+          <label>{isHandover ? "Callbacks" : "Number of callbacks"}<input inputMode="numeric" type="number" min="0" value={callbacks} onChange={(event) => setCallbacks(event.target.value)} /></label>
           <label className={styles.notes}>Additional notes <span>(optional)</span><textarea rows="3" value={notes} onChange={(event) => setNotes(event.target.value)} /></label>
         </div>
       </section>

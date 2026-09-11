@@ -5,7 +5,7 @@ from pathlib import Path
 
 import openpyxl
 
-from build_quality_control_reference_data import DISCIPLINES, STAMP, canonical_area, clean, sql_text
+from build_quality_control_reference_data import DISCIPLINES, STAMP, canonical_area, clean, inspector_name, sql_text
 
 ROOT = Path(__file__).resolve().parents[1]
 REFERENCE_JSON = ROOT / "public" / "quality-control" / "reference-audits.json"
@@ -41,8 +41,12 @@ def parse_handover(path):
     current_area = "Unassigned"
     areas = []
     defects = []
+    inspector_observations = {}
     for row_number, values in enumerate(sheet.iter_rows(values_only=True), 1):
         row = list(values) + [None] * 14
+        inspector = inspector_name(row[0])
+        if inspector and current_area != "Unassigned":
+            inspector_observations.setdefault(canonical_area(current_area), []).append(inspector)
         code_value = row[2]
         try:
             code = int(code_value)
@@ -83,13 +87,18 @@ def parse_handover(path):
             "createdAt": STAMP,
             "updatedAt": STAMP,
         })
+    area_inspectors = {}
+    for area, names in inspector_observations.items():
+        unique_names = set(names)
+        if area in areas and len(unique_names) == 1:
+            area_inspectors[area] = names[0]
     return {
         "id": f"qc-handover-{hull.lower()}",
         "name": f"{hull}_HO_Audit",
         "model": hull[:2],
         "auditType": "HO",
         "areas": areas,
-        "areaInspectors": {},
+        "areaInspectors": area_inspectors,
         "completedAreas": [],
         "defects": defects,
         "createdAt": STAMP,
@@ -109,6 +118,11 @@ def sql_for_model(qc3_audits, handover_audits, model):
             f"update public.quality_control_boats set name={sql_text(audit['name'])} "
             f"where id={sql_text(audit['id'])};"
         )
+        for area, inspector in audit.get("areaInspectors", {}).items():
+            lines.append(
+                f"update public.quality_control_areas set inspector={sql_text(inspector)}, updated_at=now() "
+                f"where boat_id={sql_text(audit['id'])} and area_name={sql_text(area)} and coalesce(trim(inspector),'')='';"
+            )
     for audit in handover_audits:
         lines.append(
             "insert into public.quality_control_boats (id,name,model) values "
@@ -116,10 +130,11 @@ def sql_for_model(qc3_audits, handover_audits, model):
             "on conflict (id) do update set name=excluded.name, model=excluded.model;"
         )
         for index, area in enumerate(audit["areas"]):
+            inspector = audit.get("areaInspectors", {}).get(area, "")
             lines.append(
-                "insert into public.quality_control_areas (boat_id,area_name,sort_order) values "
-                f"({sql_text(audit['id'])},{sql_text(area)},{index}) "
-                "on conflict (boat_id,area_name) do nothing;"
+                "insert into public.quality_control_areas (boat_id,area_name,inspector,sort_order) values "
+                f"({sql_text(audit['id'])},{sql_text(area)},{sql_text(inspector)},{index}) "
+                "on conflict (boat_id,area_name) do update set inspector=case when coalesce(trim(quality_control_areas.inspector),'')='' then excluded.inspector else quality_control_areas.inspector end;"
             )
         for start in range(0, len(audit["defects"]), 200):
             rows = []
@@ -184,6 +199,7 @@ def build(handover_directory):
     print(json.dumps({
         "qc3Audits": len(qc3_audits), "handoverAudits": len(handover_audits),
         "handoverDefects": sum(len(audit["defects"]) for audit in handover_audits),
+        "handoverInspectorAssignments": sum(len(audit["areaInspectors"]) for audit in handover_audits),
         "catalogRowsAdded": added_catalog_rows,
         "models": {model: len([audit for audit in handover_audits if audit["model"] == model]) for model in MODELS},
     }))
