@@ -8,6 +8,20 @@ import { exportQualityWorkbook } from "./qualityControlExport";
 import { QUALITY_BOAT_MODELS, clearDeletedQualityBoat, createQualityBoat, flushQualityState, hydrateQualityReferenceAudits, initializeQualityState, loadQualityState, markQualityBoatSynced, mergeQualityStates, qualityAuditType, qualityHullNumber } from "./qualityControlStorage";
 import { deleteSharedQualityBoat, loadSharedQualityBoats, subscribeToQualityControlChanges, syncQualityBoat } from "../../lib/qualityControlSupabase";
 
+const QUALITY_LAST_FULL_SYNC_KEY = "hull-master:quality-control:last-full-sync";
+const QUALITY_FULL_SYNC_MAX_AGE = 5 * 60 * 1000;
+
+function markFullSyncComplete() {
+  try { window.sessionStorage.setItem(QUALITY_LAST_FULL_SYNC_KEY, String(Date.now())); } catch { /* Sync still succeeded if session storage is unavailable. */ }
+}
+
+function hasRecentFullSync() {
+  try {
+    const lastSync = Number(window.sessionStorage.getItem(QUALITY_LAST_FULL_SYNC_KEY) || 0);
+    return lastSync > 0 && Date.now() - lastSync < QUALITY_FULL_SYNC_MAX_AGE;
+  } catch { return false; }
+}
+
 export default function QualityControlPage() {
   const [state, setState] = useState({ boats: [] });
   const [loaded, setLoaded] = useState(false);
@@ -42,8 +56,8 @@ export default function QualityControlPage() {
           if (!alreadyStored) await syncQualityBoat(boat);
           current = markQualityBoatSynced(boat.id);
         }
-        const merged = mergeQualityStates(current, await loadSharedQualityBoats(), { remoteComplete: true });
-        if (mounted) { setState(merged); setSyncStatus("Data synced from Supabase"); setError(""); }
+        markFullSyncComplete();
+        if (mounted) { setState(current); setSyncStatus("Data synced from Supabase"); setError(""); }
       } catch (loadError) {
         if (mounted) { setState(loadQualityState()); setSyncStatus("Saved locally — waiting to sync"); setError(loadError.message || "Run the Quality Control Supabase SQL to enable sharing."); }
       } finally { refreshing = false; }
@@ -58,6 +72,12 @@ export default function QualityControlPage() {
           const hydrated = hydrateQualityReferenceAudits(await response.json());
           if (mounted) setState(hydrated);
         } catch { /* Existing local audits remain available. */ }
+      }
+      const current = loadQualityState();
+      const hasPendingChanges = Boolean((current.deletedBoatIds || []).length || current.boats.some((boat) => boat.pendingSync));
+      if (!hasPendingChanges && hasRecentFullSync()) {
+        if (mounted) setSyncStatus("Data synced from Supabase");
+        return;
       }
       await refresh();
     }
@@ -88,7 +108,7 @@ export default function QualityControlPage() {
     setError("");
     setSyncStatus("Saved locally — syncing...");
     const boat = nextState.boats.find((entry) => entry.name === fullName);
-    flushQualityState().then(() => syncQualityBoat(boat)).then(() => { const synced = markQualityBoatSynced(boat.id); setState(synced); setSyncStatus("All audits synced"); }).catch((syncError) => { setSyncStatus("Saved locally — waiting to sync"); setError(syncError.message || "The new audit is safely stored locally and will retry syncing."); });
+    flushQualityState().then(() => syncQualityBoat(boat)).then(() => { const synced = markQualityBoatSynced(boat.id); setState(synced); setSyncStatus("Data synced from Supabase"); }).catch((syncError) => { setSyncStatus("Saved locally — waiting to sync"); setError(syncError.message || "The new audit is safely stored locally and will retry syncing."); });
   }
 
   async function exportVisibleBoats() {
