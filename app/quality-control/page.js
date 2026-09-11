@@ -43,7 +43,7 @@ export default function QualityControlPage() {
           current = markQualityBoatSynced(boat.id);
         }
         const merged = mergeQualityStates(current, await loadSharedQualityBoats(), { remoteComplete: true });
-        if (mounted) { setState(merged); setSyncStatus(`Synced from Supabase: ${merged.boats.length} boats`); setError(""); }
+        if (mounted) { setState(merged); setSyncStatus("Data synced from Supabase"); setError(""); }
       } catch (loadError) {
         if (mounted) { setState(loadQualityState()); setSyncStatus("Saved locally — waiting to sync"); setError(loadError.message || "Run the Quality Control Supabase SQL to enable sharing."); }
       } finally { refreshing = false; }
@@ -72,10 +72,6 @@ export default function QualityControlPage() {
     return () => { mounted = false; unsubscribe(); };
   }, []);
 
-  const defectCount = useMemo(
-    () => state.boats.reduce((total, boat) => total + boat.defects.length, 0),
-    [state.boats]
-  );
   const visibleBoats = useMemo(() => state.boats.filter((boat) => (selectedModel === "all" || (boat.model || qualityHullNumber(boat).slice(0, 2)) === selectedModel) && qualityAuditType(boat) === selectedAuditType).sort((a, b) => String(b.name || "").localeCompare(String(a.name || ""), undefined, { numeric: true, sensitivity: "base" })), [selectedAuditType, selectedModel, state.boats]);
 
   function addBoat(event) {
@@ -149,7 +145,7 @@ export default function QualityControlPage() {
           <button type="button" onClick={exportVisibleBoats} disabled={isExporting || !visibleBoats.length}>{isExporting ? "Exporting..." : "Export selected"}</button>
         </div>
 
-        <div className={styles.summary}>{syncStatus} · {defectCount} logged defects</div>
+        <div className={styles.summary}>{syncStatus}</div>
         <section className={styles.boatList} aria-label="Quality Control boat audits">
           {!loaded ? <div className={styles.empty}>Loading audits...</div> : state.boats.length === 0 ? (
             <div className={styles.empty}>No audits yet. Start a new audit to log defects.</div>
