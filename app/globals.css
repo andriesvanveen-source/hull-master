@@ -1615,4 +1615,10 @@ textarea:focus {
     width: 38px;
     height: 38px;
   }
+
+  .defect-suggestions {
+    max-height: min(320px, 55dvh);
+    padding-bottom: calc(42dvh + env(safe-area-inset-bottom, 0px));
+    scroll-padding-bottom: calc(42dvh + env(safe-area-inset-bottom, 0px));
+  }
 }
