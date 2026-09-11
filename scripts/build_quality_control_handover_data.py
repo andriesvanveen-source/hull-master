@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 REFERENCE_JSON = ROOT / "public" / "quality-control" / "reference-audits.json"
 CATALOG_JSON = ROOT / "public" / "quality-control" / "area-common-defects.json"
 SQL_DIRECTORY = ROOT / "supabase"
+ALL_INSPECTORS_SQL = SQL_DIRECTORY / "quality-control-all-inspectors.sql"
 MODELS = ["B5", "B8", "B9", "C1", "C2", "C5"]
 
 
@@ -171,6 +172,34 @@ def build(handover_directory):
     combined = sorted([*qc3_audits, *handover_audits], key=lambda audit: audit["name"], reverse=True)
     REFERENCE_JSON.write_text(json.dumps(combined, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
+    inspector_rows = [
+        (audit["id"], area, inspector)
+        for audit in combined
+        for area, inspector in audit.get("areaInspectors", {}).items()
+        if clean(inspector)
+    ]
+    inspector_values = ",\n  ".join(
+        f"({sql_text(boat_id)},{sql_text(area)},{sql_text(inspector)})"
+        for boat_id, area, inspector in inspector_rows
+    )
+    ALL_INSPECTORS_SQL.write_text("\n".join([
+        "-- All QC3 and Handover Quality Control inspector assignments.",
+        "-- Safe to rerun: only blank inspector fields are filled.",
+        "begin;",
+        "with assignments (boat_id, area_name, inspector) as (values",
+        f"  {inspector_values}",
+        ")",
+        "update public.quality_control_areas as area",
+        "set inspector=assignments.inspector, updated_at=now()",
+        "from assignments",
+        "where area.boat_id=assignments.boat_id",
+        "  and area.area_name=assignments.area_name",
+        "  and coalesce(trim(area.inspector),'')='';",
+        "commit;",
+        "select count(*) as assigned_area_inspectors from public.quality_control_areas where coalesce(trim(inspector),'') <> '';",
+        "",
+    ]), encoding="utf-8")
+
     catalog = json.loads(CATALOG_JSON.read_text(encoding="utf-8"))
     seen = {(normalize(row["area"]), normalize(row["item"]), normalize(row["issue"]), normalize(row["defect"])) for row in catalog}
     added_catalog_rows = 0
@@ -200,6 +229,7 @@ def build(handover_directory):
         "qc3Audits": len(qc3_audits), "handoverAudits": len(handover_audits),
         "handoverDefects": sum(len(audit["defects"]) for audit in handover_audits),
         "handoverInspectorAssignments": sum(len(audit["areaInspectors"]) for audit in handover_audits),
+        "allInspectorAssignments": len(inspector_rows),
         "catalogRowsAdded": added_catalog_rows,
         "models": {model: len([audit for audit in handover_audits if audit["model"] == model]) for model in MODELS},
     }))
