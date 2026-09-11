@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { findQualityBoat, initializeQualityState } from "../../../qualityControlStorage";
-import { resetMobileViewport } from "../../../resetMobileViewport";
 import styles from "./qualityUpdate.module.css";
 
 function today() {
@@ -28,8 +27,6 @@ export default function QualityUpdatePage() {
   const [callbacks, setCallbacks] = useState("");
   const [excludedConcernIds, setExcludedConcernIds] = useState([]);
   const [copyStatus, setCopyStatus] = useState("");
-
-  useEffect(() => resetMobileViewport(), []);
 
   useEffect(() => {
     initializeQualityState().then(() => {

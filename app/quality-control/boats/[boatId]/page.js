@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Fragment, use, useEffect, useMemo, useRef, useState } from "react";
 import styles from "./qualityBoat.module.css";
 import { clearDeletedQualityBoat, codeDiscipline, deleteQualityBoat, findQualityBoat, flushQualityState, initializeQualityState, loadQualityState, markQualityBoatSynced, mergeQualityStates, newQualityDefect, updateQualityBoat } from "../../qualityControlStorage";
-import { resetMobileViewport } from "../../resetMobileViewport";
 import { exportQualityExcel, exportQualityPdf } from "../../qualityControlExport";
 import { deleteSharedQualityBoat, loadSharedQualityBoat, subscribeToQualityControlChanges, syncQualityBoat } from "../../../../lib/qualityControlSupabase";
 
@@ -54,8 +53,6 @@ export default function QualityBoatPage({ params }) {
   const [message, setMessage] = useState("");
   const syncTimer = useRef(null);
   const saveVersion = useRef(0);
-
-  useEffect(() => resetMobileViewport(), []);
 
   useEffect(() => {
     let mounted = true;
