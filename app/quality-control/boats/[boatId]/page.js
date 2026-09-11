@@ -160,19 +160,21 @@ export default function QualityBoatPage({ params }) {
   return (
     <div className={styles.shell}>
       <main className={styles.page}>
-        <nav className={styles.nav}>
-          <Link href="/quality-control">← All boats</Link>
-          <div className={styles.actions}>
-            <button type="button" onClick={() => exportQualityPdf(boat)}>PDF</button>
-            <button type="button" onClick={() => exportQualityExcel(boat)}>Excel</button>
-            <button type="button" className={styles.danger} onClick={deleteBoat}>Delete</button>
-          </div>
-        </nav>
+        <div className={styles.editorHeader}>
+          <nav className={styles.nav}>
+            <Link href="/quality-control">← All boats</Link>
+            <div className={styles.actions}>
+              <button type="button" onClick={() => exportQualityPdf(boat)}>PDF</button>
+              <button type="button" onClick={() => exportQualityExcel(boat)}>Excel</button>
+              <button type="button" className={styles.danger} onClick={deleteBoat}>Delete</button>
+            </div>
+          </nav>
 
-        <header className={styles.auditHeader}>
-          <div><label>Hull Number</label><input value={boat.name} onChange={(event) => setBoat((current) => ({ ...current, name: event.target.value.toUpperCase() }))} onBlur={(event) => updateBoatField("name", event.target.value.trim().toUpperCase())} /></div>
-          <p>{message || "Saved locally in this browser"}</p>
-        </header>
+          <header className={styles.auditHeader}>
+            <div><label>Hull Number</label><input value={boat.name} onChange={(event) => setBoat((current) => ({ ...current, name: event.target.value.toUpperCase() }))} onBlur={(event) => updateBoatField("name", event.target.value.trim().toUpperCase())} /></div>
+            <p>{message || "Saved locally in this browser"}</p>
+          </header>
+        </div>
 
         <section className={styles.tableWrap}>
           <datalist id="quality-inspector-options">{QUALITY_INSPECTORS.map((name) => <option key={name} value={name} />)}</datalist>
