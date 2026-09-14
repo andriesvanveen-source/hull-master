@@ -4,7 +4,7 @@ import { ArrowLeft, Camera, Download, FileImage, FileText, Pencil, Plus, Ship, T
 import { useEffect, useMemo, useRef, useState } from "react";
 import jsPDF from "jspdf";
 import HomeBackButton from "../components/HomeBackButton";
-import { COMMISSIONING_ENGINEERS } from "../../lib/constants";
+import { COMMISSIONING_ENGINEERS, COMMON_DEFECT_AREAS, GENERAL_AREA } from "../../lib/constants";
 import { confirmProtectedAuditDelete } from "../../lib/protectedAuditDelete";
 import {
   deleteSharedHarbourAudit,
@@ -231,7 +231,7 @@ function addPhotoDefect(doc, defect, defectNumber, y, layout, logoDataUrl) {
   for (const [photoIndex, photo] of defect.photos.entries()) {
     const size = doc.getImageProperties(photo.dataUrl);
     const photoH = Math.min(235, photoW * (size.height / size.width));
-    const headingH = photoIndex === 0 ? 52 : 0;
+    const headingH = photoIndex === 0 ? 70 : 0;
     const rowH = Math.max(photoH, headingH + tableH);
     y = ensurePdfSpace(doc, y, rowH + 24, margin);
 
@@ -243,8 +243,14 @@ function addPhotoDefect(doc, defect, defectNumber, y, layout, logoDataUrl) {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
       doc.text(`Defect ${defectNumber}`, rightX, rightY);
-      rightY += 20;
+      rightY += 16;
 
+      doc.setFontSize(9);
+      doc.setTextColor(82, 100, 119);
+      doc.text(`Area: ${defect.area || GENERAL_AREA}`, rightX, rightY);
+      rightY += 18;
+
+      doc.setTextColor(0, 0, 0);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(12);
       const lines = doc.splitTextToSize(defect.description || "No description", rightW);
@@ -268,13 +274,18 @@ function addNoPhotoDefect(doc, defect, defectNumber, y, layout, logoDataUrl) {
   y = ensurePdfSpace(doc, y, tableH + 28, margin);
 
   doc.setTextColor(0, 0, 0);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(82, 100, 119);
+  doc.text(`${defectNumber}. Area: ${defect.area || GENERAL_AREA}`, margin, y + 14);
+  doc.setTextColor(0, 0, 0);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(12);
-  const lines = doc.splitTextToSize(`${defectNumber}. ${defect.description || "No description"}`, leftW);
-  doc.text(lines, margin, y + 17);
+  const lines = doc.splitTextToSize(defect.description || "No description", leftW);
+  doc.text(lines, margin, y + 31);
   drawSignoffTable(doc, tableX, y, tableW, tableH, logoDataUrl);
 
-  return y + Math.max(tableH, lines.length * 14) + 18;
+  return y + Math.max(tableH, 31 + lines.length * 14) + 18;
 }
 
 async function exportAuditPdf(audit) {
@@ -361,6 +372,7 @@ export default function HomePage() {
   const [selectedAuditor, setSelectedAuditor] = useState("all");
   const [activeId, setActiveId] = useState(null);
   const [description, setDescription] = useState("");
+  const [defectArea, setDefectArea] = useState(GENERAL_AREA);
   const [photos, setPhotos] = useState([]);
   const [editingDefectId, setEditingDefectId] = useState(null);
   const [editingAuditDetails, setEditingAuditDetails] = useState(false);
@@ -408,6 +420,7 @@ export default function HomePage() {
           updatedAt: audit.updatedAt || new Date().toISOString(),
           defects: (audit.defects || []).map((defect) => ({
             ...defect,
+            area: defect.area || GENERAL_AREA,
             updatedAt: defect.updatedAt || audit.updatedAt || new Date().toISOString()
           }))
         }));
@@ -635,12 +648,14 @@ export default function HomePage() {
   function resetDefectEditor() {
     setEditingDefectId(null);
     setDescription("");
+    setDefectArea(GENERAL_AREA);
     setPhotos([]);
   }
 
   function startEditingDefect(defect) {
     setEditingDefectId(defect.id);
     setDescription(defect.description || "");
+    setDefectArea(defect.area || GENERAL_AREA);
     setPhotos(Array.isArray(defect.photos) ? defect.photos : []);
     setError("");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -663,7 +678,7 @@ export default function HomePage() {
           ...audit,
           updatedAt,
           defects: audit.defects.map((defect) => defect.id === editingDefectId
-            ? { ...defect, description: description.trim(), photos, updatedAt }
+            ? { ...defect, area: defectArea || GENERAL_AREA, description: description.trim(), photos, updatedAt }
             : defect)
         };
         return changedAudit;
@@ -671,7 +686,7 @@ export default function HomePage() {
       changedAudit = {
         ...audit,
         updatedAt,
-        defects: [...audit.defects, { id: uid(), description: description.trim(), photos, updatedAt }]
+        defects: [...audit.defects, { id: uid(), area: defectArea || GENERAL_AREA, description: description.trim(), photos, updatedAt }]
       };
       return changedAudit;
     });
@@ -773,7 +788,15 @@ export default function HomePage() {
             </form>
           )}
           <section className="card add-card">
-            <h2>{editingDefectId ? "Edit defect" : "Add defect"}</h2>
+            <div className="add-defect-heading">
+              <h2>{editingDefectId ? "Edit defect" : "Add defect"}</h2>
+              <label className="area-field">
+                <span>Area</span>
+                <select value={defectArea} onChange={(event) => setDefectArea(event.target.value)}>
+                  {COMMON_DEFECT_AREAS.map((area) => <option value={area} key={area}>{area}</option>)}
+                </select>
+              </label>
+            </div>
             <div className="description-field">
               <textarea
                 rows={3}
@@ -837,6 +860,7 @@ export default function HomePage() {
               <div className="defect-list">
                 {activeAudit.defects.map((defect) => (
                   <article className="card defect-card" key={defect.id}>
+                    <span className="defect-area">{defect.area || GENERAL_AREA}</span>
                     <div className="defect-card-heading">
                       <p>{defect.description || "No description"}</p>
                       <button className="edit-defect-button" type="button" onClick={() => startEditingDefect(defect)}>

@@ -13,10 +13,14 @@ create table if not exists public.harbour_audits (
 create table if not exists public.harbour_audit_defects (
   id text primary key,
   audit_id text not null references public.harbour_audits(id) on delete cascade,
+  area_name text not null default 'General',
   description text not null check (length(btrim(description)) > 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.harbour_audit_defects
+add column if not exists area_name text not null default 'General';
 
 create table if not exists public.harbour_audit_photos (
   id text primary key,
