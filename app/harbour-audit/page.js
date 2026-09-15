@@ -25,7 +25,7 @@ const HARBOUR_AUDIT_AREAS = [
   "Main DB",
   "Genset Locker",
   GENERAL_AREA
-];
+].sort((left, right) => left.localeCompare(right));
 let auditSaveQueue = Promise.resolve();
 let pdfLogoPromise;
 
