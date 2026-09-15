@@ -10,6 +10,9 @@ create table if not exists public.harbour_audits (
   updated_at timestamptz not null default now()
 );
 
+alter table public.harbour_audits
+add column if not exists deleted_at timestamptz;
+
 create table if not exists public.harbour_audit_defects (
   id text primary key,
   audit_id text not null references public.harbour_audits(id) on delete cascade,

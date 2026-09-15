@@ -17,6 +17,7 @@ const STORAGE_KEY = "harbour-audit-buddy-audits";
 const DATABASE_NAME = "harbour-audit-buddy";
 const DATABASE_VERSION = 1;
 const DATABASE_STORE = "audit-state";
+const DELETED_AUDITS_KEY = "harbour-audit-buddy-deleted-audits";
 const HARBOUR_AUDIT_AREAS = [
   ...COMMON_DEFECT_AREAS.filter((area) => area !== GENERAL_AREA),
   "Port Sub DB",
@@ -95,6 +96,19 @@ async function saveAuditsLocally(audits) {
 function queueAuditSave(audits) {
   auditSaveQueue = auditSaveQueue.catch(() => undefined).then(() => saveAuditsLocally(audits));
   return auditSaveQueue;
+}
+
+function loadDeletedAuditTombstones() {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(DELETED_AUDITS_KEY) || "[]");
+    return Array.isArray(value) ? value : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveDeletedAuditTombstones(audits) {
+  window.localStorage.setItem(DELETED_AUDITS_KEY, JSON.stringify(audits));
 }
 
 function todayText() {
@@ -401,6 +415,7 @@ export default function HomePage() {
   const pendingSyncIds = useRef(new Set());
   const auditSyncVersions = useRef(new Map());
   const auditSyncQueues = useRef(new Map());
+  const deletedAuditsRef = useRef([]);
 
   useEffect(() => {
     auditsRef.current = audits;
@@ -428,11 +443,14 @@ export default function HomePage() {
           // A damaged legacy backup must not prevent valid IndexedDB audits from loading.
         }
 
+        const locallyDeletedAudits = loadDeletedAuditTombstones();
+        deletedAuditsRef.current = locallyDeletedAudits;
+        const locallyDeletedIds = new Set(locallyDeletedAudits.map((audit) => audit.id));
         const indexedIds = new Set(indexedAudits.map((audit) => audit.id));
         const savedAudits = [
           ...indexedAudits,
           ...legacyAudits.filter((audit) => !indexedIds.has(audit.id))
-        ].map((audit) => ({
+        ].filter((audit) => !locallyDeletedIds.has(audit.id)).map((audit) => ({
           ...audit,
           auditor: audit.auditor || "",
           pendingDefectIds: audit.pendingDefectIds || [],
@@ -502,12 +520,20 @@ export default function HomePage() {
 
     async function refreshSharedAudits({ migrateLocal = false } = {}) {
       try {
-        const remoteAudits = await loadSharedHarbourAudits();
+        const sharedResult = await loadSharedHarbourAudits();
+        const remoteAudits = sharedResult.audits;
+        const deletedIds = new Set([
+          ...sharedResult.deletedAuditIds,
+          ...deletedAuditsRef.current.map((audit) => audit.id)
+        ]);
         if (!isMounted) return;
-        const localAudits = auditsRef.current;
+        const localAudits = auditsRef.current.filter((audit) => !deletedIds.has(audit.id));
+        for (const deletedAudit of deletedAuditsRef.current) {
+          try { await deleteSharedHarbourAudit(deletedAudit); } catch { /* Retry on the next refresh. */ }
+        }
         const remoteIds = new Set(remoteAudits.map((audit) => audit.id));
         const merged = [
-          ...remoteAudits.map((remoteAudit) => {
+          ...remoteAudits.filter((audit) => !deletedIds.has(audit.id)).map((remoteAudit) => {
             const localAudit = localAudits.find((audit) => audit.id === remoteAudit.id);
             if (!localAudit) return remoteAudit;
             const localTime = Date.parse(localAudit.updatedAt || "") || 0;
@@ -518,7 +544,7 @@ export default function HomePage() {
               ? localAudit
               : remoteAudit;
           }),
-          ...localAudits.filter((audit) => !remoteIds.has(audit.id))
+          ...localAudits.filter((audit) => !remoteIds.has(audit.id) && !deletedIds.has(audit.id))
         ];
         auditsRef.current = merged;
         setAudits(merged);
@@ -790,6 +816,8 @@ export default function HomePage() {
     const nextAudits = auditsRef.current.filter((item) => item.id !== id);
     auditsRef.current = nextAudits;
     setAudits(nextAudits);
+    deletedAuditsRef.current = [...deletedAuditsRef.current.filter((item) => item.id !== audit.id), audit];
+    try { saveDeletedAuditTombstones(deletedAuditsRef.current); } catch { /* Keep the in-memory tombstone and continue the shared deletion. */ }
     try {
       await queueAuditSave(nextAudits);
       if (audit) await deleteSharedHarbourAudit(audit);
