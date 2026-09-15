@@ -933,7 +933,7 @@ export default function HomePage() {
               <p>No defects yet.</p>
             ) : (
               <div className="defect-list">
-                {activeAudit.defects.map((defect) => (
+                {[...activeAudit.defects].reverse().map((defect) => (
                   <article className="card defect-card" key={defect.id}>
                     <span className="defect-area">{defect.area || GENERAL_AREA}</span>
                     <div className="defect-card-heading">
