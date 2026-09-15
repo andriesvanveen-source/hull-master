@@ -54,6 +54,7 @@ export default function QualityBoatPage({ params }) {
   const [message, setMessage] = useState("");
   const syncTimer = useRef(null);
   const saveVersion = useRef(0);
+  const syncQueue = useRef(Promise.resolve());
 
   useEffect(() => {
     let mounted = true;
@@ -62,6 +63,10 @@ export default function QualityBoatPage({ params }) {
       try {
         const current = findQualityBoat(boatId);
         if (current?.pendingSync) {
+          if (saveVersion.current > 0) {
+            if (mounted) { setBoat({ ...current }); setMessage("Saved locally — syncing..."); }
+            return;
+          }
           await syncQualityBoat(current);
           if (mounted) { markQualityBoatSynced(boatId); setBoat({ ...findQualityBoat(boatId) }); setMessage("All changes synced"); }
           return;
@@ -89,8 +94,11 @@ export default function QualityBoatPage({ params }) {
     window.clearTimeout(syncTimer.current);
     syncTimer.current = window.setTimeout(async () => {
       try {
-        await flushQualityState();
-        await syncQualityBoat(saved);
+        syncQueue.current = syncQueue.current.catch(() => undefined).then(async () => {
+          await flushQualityState();
+          await syncQualityBoat(saved);
+        });
+        await syncQueue.current;
         if (version === saveVersion.current) { markQualityBoatSynced(saved.id); setBoat({ ...findQualityBoat(saved.id) }); setMessage("All changes synced"); }
       } catch { setMessage("Saved locally — waiting to sync"); }
     }, 650);

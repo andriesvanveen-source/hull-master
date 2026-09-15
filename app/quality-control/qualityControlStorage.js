@@ -87,6 +87,9 @@ function migrateQualityState(state) {
     areaInspectors: boat.areaInspectors || {},
     defects: (boat.defects || []).map((defect) => ({ ...defect, concern: Boolean(defect.concern), discipline: QUALITY_CODE_DISCIPLINES[Number(defect.code)] || defect.discipline || "" })),
     pendingSync: boat.id?.startsWith("qc-reference-") && !(boat.areas || []).length && !(boat.defects || []).length ? false : Boolean(boat.pendingSync),
+    pendingDefectIds: boat.pendingDefectIds || [],
+    pendingAreaNames: boat.pendingAreaNames || [],
+    syncScopeVersion: boat.syncScopeVersion,
     deletedDefectIds: boat.deletedDefectIds || [],
     deletedAreaNames: boat.deletedAreaNames || []
   }));
@@ -160,12 +163,15 @@ export function updateQualityBoat(nextBoat) {
   const nextAreas = new Set(nextBoat.areas || []);
   const removedDefects = (previous?.defects || []).filter((defect) => !nextDefectIds.has(defect.id)).map((defect) => defect.id);
   const removedAreas = (previous?.areas || []).filter((area) => !nextAreas.has(area));
-  state.boats = state.boats.map((boat) => boat.id === nextBoat.id ? { ...nextBoat, model: String(nextBoat.name || "").slice(0, 2), pendingSync: true, deletedDefectIds: [...new Set([...(boat.deletedDefectIds || []), ...removedDefects])], deletedAreaNames: [...new Set([...(boat.deletedAreaNames || []), ...removedAreas])], updatedAt: new Date().toISOString() } : boat);
+  const previousDefects = new Map((previous?.defects || []).map((defect) => [defect.id, defect]));
+  const changedDefectIds = (nextBoat.defects || []).filter((defect) => JSON.stringify(previousDefects.get(defect.id)) !== JSON.stringify(defect)).map((defect) => defect.id);
+  const changedAreaNames = (nextBoat.areas || []).filter((area, index) => !(previous?.areas || []).includes(area) || previous?.areas?.[index] !== area || previous?.areaInspectors?.[area] !== nextBoat.areaInspectors?.[area]);
+  state.boats = state.boats.map((boat) => boat.id === nextBoat.id ? { ...nextBoat, model: String(nextBoat.name || "").slice(0, 2), pendingSync: true, syncScopeVersion: 1, pendingDefectIds: [...new Set([...(boat.pendingDefectIds || []), ...changedDefectIds])], pendingAreaNames: [...new Set([...(boat.pendingAreaNames || []), ...changedAreaNames])], deletedDefectIds: [...new Set([...(boat.deletedDefectIds || []), ...removedDefects])], deletedAreaNames: [...new Set([...(boat.deletedAreaNames || []), ...removedAreas])], updatedAt: new Date().toISOString() } : boat);
   saveQualityState(state);
   return state.boats.find((boat) => boat.id === nextBoat.id);
 }
 export function deleteQualityBoat(boatId) { const state = loadQualityState(); state.boats = state.boats.filter((boat) => boat.id !== boatId); state.deletedBoatIds = [...new Set([...(state.deletedBoatIds || []), boatId])]; return saveQualityState(state); }
-export function markQualityBoatSynced(boatId) { const state = loadQualityState(); state.boats = state.boats.map((boat) => boat.id === boatId ? { ...boat, pendingSync: false, deletedDefectIds: [], deletedAreaNames: [] } : boat); return saveQualityState(state); }
+export function markQualityBoatSynced(boatId) { const state = loadQualityState(); state.boats = state.boats.map((boat) => boat.id === boatId ? { ...boat, pendingSync: false, syncScopeVersion: 1, pendingDefectIds: [], pendingAreaNames: [], deletedDefectIds: [], deletedAreaNames: [] } : boat); return saveQualityState(state); }
 export function clearDeletedQualityBoat(boatId) { const state = loadQualityState(); state.deletedBoatIds = (state.deletedBoatIds || []).filter((id) => id !== boatId); return saveQualityState(state); }
 export function mergeQualityStates(localState, remoteBoats, options = {}) {
   const deleted = new Set(localState.deletedBoatIds || []);

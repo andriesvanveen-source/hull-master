@@ -17,6 +17,15 @@ const STORAGE_KEY = "harbour-audit-buddy-audits";
 const DATABASE_NAME = "harbour-audit-buddy";
 const DATABASE_VERSION = 1;
 const DATABASE_STORE = "audit-state";
+const HARBOUR_AUDIT_AREAS = [
+  ...COMMON_DEFECT_AREAS.filter((area) => area !== GENERAL_AREA),
+  "Port Sub DB",
+  "Stbd Sub DB",
+  "Switchpanel",
+  "Main DB",
+  "Genset Locker",
+  GENERAL_AREA
+];
 let auditSaveQueue = Promise.resolve();
 let pdfLogoPromise;
 
@@ -107,6 +116,13 @@ function auditDateTimestamp(audit) {
 
 function uid() {
   return globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+}
+
+function normalizeDefectText(value) {
+  return String(value || "")
+    .toLocaleLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
 function normalizePhoto(dataUrl) {
@@ -383,6 +399,8 @@ export default function HomePage() {
   const auditsRef = useRef([]);
   const sharedStartedRef = useRef(false);
   const pendingSyncIds = useRef(new Set());
+  const auditSyncVersions = useRef(new Map());
+  const auditSyncQueues = useRef(new Map());
 
   useEffect(() => {
     auditsRef.current = audits;
@@ -417,6 +435,8 @@ export default function HomePage() {
         ].map((audit) => ({
           ...audit,
           auditor: audit.auditor || "",
+          pendingDefectIds: audit.pendingDefectIds || [],
+          deletedDefectIds: audit.deletedDefectIds || [],
           updatedAt: audit.updatedAt || new Date().toISOString(),
           defects: (audit.defects || []).map((defect) => ({
             ...defect,
@@ -491,7 +511,9 @@ export default function HomePage() {
             if (!localAudit) return remoteAudit;
             const localTime = Date.parse(localAudit.updatedAt || "") || 0;
             const remoteTime = Date.parse(remoteAudit.updatedAt || "") || 0;
-            return pendingSyncIds.current.has(remoteAudit.id) || localTime > remoteTime
+            const hasPendingChanges = (localAudit.pendingDefectIds || []).length > 0
+              || (localAudit.deletedDefectIds || []).length > 0;
+            return pendingSyncIds.current.has(remoteAudit.id) || hasPendingChanges || localTime > remoteTime
               ? localAudit
               : remoteAudit;
           }),
@@ -503,10 +525,31 @@ export default function HomePage() {
 
         if (migrateLocal) {
           const failedAuditTitles = [];
-          for (const audit of localAudits) {
+          const auditsNeedingMigration = localAudits.filter((audit) => {
+            const remoteAudit = remoteAudits.find((entry) => entry.id === audit.id);
+            if (!remoteAudit) return true;
+            const localTime = Date.parse(audit.updatedAt || "") || 0;
+            const remoteTime = Date.parse(remoteAudit.updatedAt || "") || 0;
+            return localTime > remoteTime
+              || (audit.pendingDefectIds || []).length > 0
+              || (audit.deletedDefectIds || []).length > 0;
+          });
+          for (const audit of auditsNeedingMigration) {
             try {
               pendingSyncIds.current.add(audit.id);
-              await syncHarbourAudit(audit);
+              const startingVersion = auditSyncVersions.current.get(audit.id) || 0;
+              const previousSync = auditSyncQueues.current.get(audit.id) || Promise.resolve();
+              const migrationSync = previousSync.catch(() => undefined).then(() => syncHarbourAudit(audit));
+              auditSyncQueues.current.set(audit.id, migrationSync);
+              await migrationSync;
+              if ((auditSyncVersions.current.get(audit.id) || 0) === startingVersion) {
+                const syncedAudits = auditsRef.current.map((entry) => entry.id === audit.id
+                  ? { ...entry, pendingDefectIds: [], deletedDefectIds: [], syncScopeVersion: 1 }
+                  : entry);
+                auditsRef.current = syncedAudits;
+                setAudits(syncedAudits);
+                await queueAuditSave(syncedAudits);
+              }
               pendingSyncIds.current.delete(audit.id);
             } catch {
               // Keep the local version protected from stale realtime data. It will
@@ -554,11 +597,23 @@ export default function HomePage() {
     auditsRef.current = nextAudits;
     setAudits(nextAudits);
     pendingSyncIds.current.add(changedAudit.id);
+    const syncVersion = (auditSyncVersions.current.get(changedAudit.id) || 0) + 1;
+    auditSyncVersions.current.set(changedAudit.id, syncVersion);
     try {
       await queueAuditSave(nextAudits);
       setSyncStatus("Saved locally — syncing...");
-      await syncHarbourAudit(changedAudit);
+      const previousSync = auditSyncQueues.current.get(changedAudit.id) || Promise.resolve();
+      const currentSync = previousSync.catch(() => undefined).then(() => syncHarbourAudit(changedAudit));
+      auditSyncQueues.current.set(changedAudit.id, currentSync);
+      await currentSync;
+      if (auditSyncVersions.current.get(changedAudit.id) !== syncVersion) return;
       pendingSyncIds.current.delete(changedAudit.id);
+      const syncedAudits = auditsRef.current.map((audit) => audit.id === changedAudit.id
+        ? { ...audit, pendingDefectIds: [], deletedDefectIds: [], syncScopeVersion: 1 }
+        : audit);
+      auditsRef.current = syncedAudits;
+      setAudits(syncedAudits);
+      await queueAuditSave(syncedAudits);
       setSyncStatus("All audits synced");
       setError("");
     } catch (syncError) {
@@ -612,6 +667,7 @@ export default function HomePage() {
       ...activeAudit,
       title,
       auditor,
+      syncScopeVersion: 1,
       updatedAt: new Date().toISOString()
     };
     const nextAudits = auditsRef.current.map((audit) => audit.id === changedAudit.id ? changedAudit : audit);
@@ -669,7 +725,19 @@ export default function HomePage() {
       setError("Enter a defect description before adding the defect.");
       return;
     }
+    const selectedArea = defectArea || GENERAL_AREA;
+    const normalizedDescription = normalizeDefectText(description);
+    const duplicateDefect = activeAudit.defects.find((defect) =>
+      defect.id !== editingDefectId
+      && normalizeDefectText(defect.area || GENERAL_AREA) === normalizeDefectText(selectedArea)
+      && normalizeDefectText(defect.description) === normalizedDescription
+    );
+    if (duplicateDefect) {
+      setError(`This defect is already recorded in ${duplicateDefect.area || GENERAL_AREA}. Edit the existing defect instead of adding it again.`);
+      return;
+    }
     const updatedAt = new Date().toISOString();
+    const changedDefectId = editingDefectId || uid();
     let changedAudit;
     const nextAudits = auditsRef.current.map((audit) => {
       if (audit.id !== activeAudit.id) return audit;
@@ -677,8 +745,10 @@ export default function HomePage() {
         changedAudit = {
           ...audit,
           updatedAt,
+          syncScopeVersion: 1,
+          pendingDefectIds: [...new Set([...(audit.pendingDefectIds || []), changedDefectId])],
           defects: audit.defects.map((defect) => defect.id === editingDefectId
-            ? { ...defect, area: defectArea || GENERAL_AREA, description: description.trim(), photos, updatedAt }
+            ? { ...defect, area: selectedArea, description: description.trim(), photos, updatedAt }
             : defect)
         };
         return changedAudit;
@@ -686,7 +756,9 @@ export default function HomePage() {
       changedAudit = {
         ...audit,
         updatedAt,
-        defects: [...audit.defects, { id: uid(), area: defectArea || GENERAL_AREA, description: description.trim(), photos, updatedAt }]
+        syncScopeVersion: 1,
+        pendingDefectIds: [...new Set([...(audit.pendingDefectIds || []), changedDefectId])],
+        defects: [...audit.defects, { id: changedDefectId, area: selectedArea, description: description.trim(), photos, updatedAt }]
       };
       return changedAudit;
     });
@@ -702,6 +774,8 @@ export default function HomePage() {
     const changedAudit = {
       ...activeAudit,
       updatedAt: new Date().toISOString(),
+      syncScopeVersion: 1,
+      deletedDefectIds: [...new Set([...(activeAudit.deletedDefectIds || []), editingDefectId])],
       defects: activeAudit.defects.filter((item) => item.id !== editingDefectId)
     };
     const nextAudits = auditsRef.current.map((audit) => audit.id === changedAudit.id ? changedAudit : audit);
@@ -793,7 +867,7 @@ export default function HomePage() {
               <label className="area-field">
                 <span>Area</span>
                 <select value={defectArea} onChange={(event) => setDefectArea(event.target.value)}>
-                  {COMMON_DEFECT_AREAS.map((area) => <option value={area} key={area}>{area}</option>)}
+                  {HARBOUR_AUDIT_AREAS.map((area) => <option value={area} key={area}>{area}</option>)}
                 </select>
               </label>
             </div>
@@ -820,7 +894,7 @@ export default function HomePage() {
               </button>
               <button className="outline-button" type="button" onClick={() => openPhotoPicker(false)}>
                 <FileImage size={16} />
-                Choose gallery
+                Photo Library
               </button>
             </div>
             {photos.length > 0 && (

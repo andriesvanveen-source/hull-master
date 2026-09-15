@@ -49,11 +49,9 @@ export default function QualityControlPage() {
           current = clearDeletedQualityBoat(boatId);
         }
         for (const boat of current.boats.filter((entry) => entry.pendingSync)) {
-          const matchingRemote = remoteBoats.find((entry) => entry.id === boat.id);
-          const remoteAreaNames = new Set(matchingRemote?.areas || []);
-          const remoteDefectIds = new Set((matchingRemote?.defects || []).map((defect) => defect.id));
-          const alreadyStored = matchingRemote && boat.areas.every((area) => remoteAreaNames.has(area)) && boat.defects.every((defect) => remoteDefectIds.has(defect.id));
-          if (!alreadyStored) await syncQualityBoat(boat);
+          // A matching remote ID does not mean a local edit has been saved.
+          // Delta sync is safe to repeat and must finish before pending flags clear.
+          await syncQualityBoat(boat);
           current = markQualityBoatSynced(boat.id);
         }
         markFullSyncComplete();

@@ -345,7 +345,7 @@ function ItemFormView({ categories, item, onBack, onSave, onDelete, onOpenExisti
               </button>
               <button className={styles.photoButton} type="button" onClick={() => openPhotoPicker(false)}>
                 <FileImage size={16} />
-                Choose gallery
+                Photo Library
               </button>
             </div>
             {photoPreview ? <img className={styles.photoPreview} src={photoPreview} alt="Selected stock item" /> : null}
