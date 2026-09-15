@@ -441,6 +441,7 @@ export default function HomePage() {
           defects: (audit.defects || []).map((defect) => ({
             ...defect,
             area: defect.area || GENERAL_AREA,
+            createdAt: defect.createdAt || defect.updatedAt || audit.updatedAt || new Date().toISOString(),
             updatedAt: defect.updatedAt || audit.updatedAt || new Date().toISOString()
           }))
         }));
@@ -758,7 +759,7 @@ export default function HomePage() {
         updatedAt,
         syncScopeVersion: 1,
         pendingDefectIds: [...new Set([...(audit.pendingDefectIds || []), changedDefectId])],
-        defects: [...audit.defects, { id: changedDefectId, area: selectedArea, description: description.trim(), photos, updatedAt }]
+        defects: [...audit.defects, { id: changedDefectId, area: selectedArea, description: description.trim(), photos, createdAt: updatedAt, updatedAt }]
       };
       return changedAudit;
     });
