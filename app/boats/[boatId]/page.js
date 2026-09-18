@@ -36,6 +36,9 @@ import {
 } from "../../../lib/storage";
 
 const boatCacheKey = (boatId) => `hull-master:boat-cache:v1:${boatId}`;
+const ADDITIONAL_GENERAL_DEFECTS = [
+  { text: "Insulate Chiller coolant pipe elbows, fitting and valves", discipline: "PLUM" }
+];
 
 export default function BoatLogPage({ params }) {
   const router = useRouter();
@@ -166,7 +169,16 @@ export default function BoatLogPage({ params }) {
       })
       .then((areaDefects) => {
         if (isMounted) {
-          setCommonDefectsByArea(areaDefects);
+          const generalDefects = areaDefects[GENERAL_AREA] || [];
+          setCommonDefectsByArea({
+            ...areaDefects,
+            [GENERAL_AREA]: [
+              ...generalDefects,
+              ...ADDITIONAL_GENERAL_DEFECTS.filter((additionalDefect) => !generalDefects.some(
+                (defect) => normalizeDefectText(defect.text) === normalizeDefectText(additionalDefect.text)
+              ))
+            ]
+          });
         }
       })
       .catch(() => {
