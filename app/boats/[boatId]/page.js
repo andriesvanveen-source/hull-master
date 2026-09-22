@@ -320,6 +320,9 @@ export default function BoatLogPage({ params }) {
     );
   }, [previousBoat]);
   const shouldHighlightRepeats = showRepeatDefects && repeatedDefectTexts.size > 0;
+  const repeatedDefectCount = shouldHighlightRepeats
+    ? boat.defects.filter((defect) => repeatedDefectTexts.has(normalizeDefectText(defect.text))).length
+    : 0;
   const areaOptions = useMemo(() => {
     const fromCommonDefects = Object.keys(commonDefectsByArea).filter((area) => area !== "all");
     const existingAreas = new Set(boatAreas.map((area) => area.toLowerCase()));
@@ -1216,7 +1219,7 @@ export default function BoatLogPage({ params }) {
           {shouldHighlightRepeats ? (
             <div className="repeat-key">
               <span className="repeat-swatch"></span>
-              <span>Repeated from {previousBoat.name}</span>
+              <span>{repeatedDefectCount} repeat defect{repeatedDefectCount === 1 ? "" : "s"} from {previousBoat.name}</span>
             </div>
           ) : null}
         </div>
