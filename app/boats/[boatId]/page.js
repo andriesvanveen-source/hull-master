@@ -36,9 +36,40 @@ import {
 } from "../../../lib/storage";
 
 const boatCacheKey = (boatId) => `hull-master:boat-cache:v1:${boatId}`;
+const pendingDefectsKey = (boatId) => `hull-master:pending-defects:v1:${boatId}`;
 const ADDITIONAL_GENERAL_DEFECTS = [
   { text: "Insulate Chiller coolant pipe elbows, fitting and valves", discipline: "PLUM" }
 ];
+
+function loadPendingDefects(boatId) {
+  try {
+    const pending = JSON.parse(window.localStorage.getItem(pendingDefectsKey(boatId)) || "[]");
+    return Array.isArray(pending) ? pending : [];
+  } catch {
+    return [];
+  }
+}
+
+function savePendingDefects(boatId, pendingDefects) {
+  window.localStorage.setItem(pendingDefectsKey(boatId), JSON.stringify(pendingDefects));
+}
+
+function mergePendingDefects(state, boatId, pendingDefects) {
+  return {
+    ...state,
+    boats: (state.boats || []).map((boat) => {
+      if (boat.id !== boatId) return boat;
+      const storedIds = new Set((boat.defects || []).map((defect) => defect.id));
+      return {
+        ...boat,
+        defects: [
+          ...(boat.defects || []),
+          ...pendingDefects.filter((defect) => !storedIds.has(defect.id))
+        ]
+      };
+    })
+  };
+}
 
 export default function BoatLogPage({ params }) {
   const router = useRouter();
@@ -69,6 +100,9 @@ export default function BoatLogPage({ params }) {
   const queuedRealtimeRefresh = useRef(false);
   const refreshStateRef = useRef(null);
   const refreshTimer = useRef(null);
+  const pendingDefectsRef = useRef(new Map());
+  const syncingPendingDefects = useRef(new Set());
+  const pendingRetryTimers = useRef(new Map());
 
   async function runSupabaseMutation(mutation) {
     pendingMutations.current += 1;
@@ -86,13 +120,65 @@ export default function BoatLogPage({ params }) {
     }
   }
 
+  function persistPendingDefects() {
+    savePendingDefects(params.boatId, [...pendingDefectsRef.current.values()]);
+  }
+
+  async function syncPendingDefect(pendingDefect) {
+    if (syncingPendingDefects.current.has(pendingDefect.id)) return;
+    syncingPendingDefects.current.add(pendingDefect.id);
+    const syncingVersion = pendingDefect.localVersion || 1;
+
+    try {
+      const savedDefect = await runSupabaseMutation(() => createDefect({
+        id: pendingDefect.id,
+        boatId: params.boatId,
+        text: pendingDefect.text,
+        discipline: pendingDefect.discipline,
+        area: pendingDefect.area
+      }));
+      const currentPending = pendingDefectsRef.current.get(pendingDefect.id);
+
+      if (!currentPending) {
+        await runSupabaseMutation(() => deleteDefect(pendingDefect.id));
+        return;
+      }
+      if ((currentPending.localVersion || 1) !== syncingVersion) return;
+
+      pendingDefectsRef.current.delete(pendingDefect.id);
+      window.clearTimeout(pendingRetryTimers.current.get(pendingDefect.id));
+      pendingRetryTimers.current.delete(pendingDefect.id);
+      persistPendingDefects();
+      updateDefectInState(pendingDefect.id, () => savedDefect);
+      setSaveError(pendingDefectsRef.current.size ? "Saved locally - waiting to sync." : "");
+    } catch (syncError) {
+      setSaveError(`Saved locally - waiting to sync. ${syncError.message || "Supabase is unavailable."}`);
+      window.clearTimeout(pendingRetryTimers.current.get(pendingDefect.id));
+      const retryTimer = window.setTimeout(() => {
+        pendingRetryTimers.current.delete(pendingDefect.id);
+        const latestPending = pendingDefectsRef.current.get(pendingDefect.id);
+        if (latestPending) void syncPendingDefect(latestPending);
+      }, 8000);
+      pendingRetryTimers.current.set(pendingDefect.id, retryTimer);
+    } finally {
+      syncingPendingDefects.current.delete(pendingDefect.id);
+      const latestPending = pendingDefectsRef.current.get(pendingDefect.id);
+      if (latestPending && (latestPending.localVersion || 1) !== syncingVersion) {
+        void syncPendingDefect(latestPending);
+      }
+    }
+  }
+
   useEffect(() => {
     let isMounted = true;
+    const retryTimers = pendingRetryTimers.current;
+    const pendingDefects = loadPendingDefects(params.boatId);
+    pendingDefectsRef.current = new Map(pendingDefects.map((defect) => [defect.id, defect]));
 
     try {
       const cachedState = JSON.parse(window.localStorage.getItem(boatCacheKey(params.boatId)) || "null");
       if (Array.isArray(cachedState?.boats)) {
-        setState(cachedState);
+        setState(mergePendingDefects(cachedState, params.boatId, pendingDefects));
         setHasLoaded(true);
       }
     } catch {
@@ -112,7 +198,7 @@ export default function BoatLogPage({ params }) {
             return;
           }
 
-          setState(nextState);
+          setState(mergePendingDefects(nextState, params.boatId, [...pendingDefectsRef.current.values()]));
           setSaveError("");
         }
       } catch (loadError) {
@@ -129,6 +215,11 @@ export default function BoatLogPage({ params }) {
 
     refreshStateRef.current = refreshState;
     refreshState();
+    pendingDefects.forEach((defect) => void syncPendingDefect(defect));
+    const retryPendingDefects = () => {
+      pendingDefectsRef.current.forEach((defect) => void syncPendingDefect(defect));
+    };
+    window.addEventListener("online", retryPendingDefects);
     const unsubscribe = subscribeToBoatChanges(params.boatId, () => {
       if (pendingMutations.current > 0) {
         queuedRealtimeRefresh.current = true;
@@ -142,8 +233,13 @@ export default function BoatLogPage({ params }) {
       isMounted = false;
       refreshStateRef.current = null;
       window.clearTimeout(refreshTimer.current);
+      retryTimers.forEach((timer) => window.clearTimeout(timer));
+      retryTimers.clear();
+      window.removeEventListener("online", retryPendingDefects);
       unsubscribe();
     };
+    // syncPendingDefect deliberately uses the current boat render; this effect resets when the boat changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.boatId]);
 
   useEffect(() => {
@@ -540,26 +636,29 @@ export default function BoatLogPage({ params }) {
       }));
     }
 
-    try {
-      const nextDefect = await runSupabaseMutation(() => createDefect({
-        boatId: params.boatId,
-        text: draft.text,
-        discipline: draft.discipline,
-        area
-      }));
+    const now = new Date().toISOString();
+    const nextDefect = {
+      id: globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+      text: draft.text.trim(),
+      discipline: draft.discipline || "",
+      area,
+      callbackRequestedAt: "",
+      createdAt: now,
+      updatedAt: now,
+      pendingSync: true,
+      localVersion: 1
+    };
 
+    try {
+      pendingDefectsRef.current.set(nextDefect.id, nextDefect);
+      persistPendingDefects();
       setState((current) => ({
         boats: current.boats.map((item) => {
           if (item.id !== params.boatId) {
             return item;
           }
 
-          return {
-            ...item,
-            defects: item.defects.some((defect) => defect.id === nextDefect.id)
-              ? item.defects
-              : [...item.defects, nextDefect]
-          };
+          return { ...item, defects: [...item.defects, nextDefect] };
         })
       }));
       setDrafts((current) => ({
@@ -567,13 +666,15 @@ export default function BoatLogPage({ params }) {
         [area]: { text: "", discipline: "" }
       }));
       setSaveError("");
+      void syncPendingDefect(nextDefect);
       return nextDefect;
-    } catch (createError) {
+    } catch (localSaveError) {
+      pendingDefectsRef.current.delete(nextDefect.id);
       setDrafts((current) => ({
         ...current,
         [area]: { ...draft, isSaving: false, isOpen: true }
       }));
-      setSaveError(createError.message || "Could not save defect to Supabase.");
+      setSaveError(localSaveError.message || "This browser could not save the defect locally.");
       return null;
     } finally {
       savingDraftAreas.current.delete(area);
@@ -602,6 +703,28 @@ export default function BoatLogPage({ params }) {
 
     if (field === "discipline") {
       setDefectDisciplineDrafts((current) => ({ ...current, [defectId]: value }));
+    }
+
+    const pendingDefect = pendingDefectsRef.current.get(defectId);
+    if (pendingDefect) {
+      const updatedPendingDefect = {
+        ...pendingDefect,
+        [field]: value,
+        updatedAt: new Date().toISOString(),
+        localVersion: (pendingDefect.localVersion || 1) + 1
+      };
+      pendingDefectsRef.current.set(defectId, updatedPendingDefect);
+      persistPendingDefects();
+      updateDefectInState(defectId, () => updatedPendingDefect);
+      if (field === "discipline") {
+        setDefectDisciplineDrafts((current) => {
+          const next = { ...current };
+          delete next[defectId];
+          return next;
+        });
+      }
+      void syncPendingDefect(updatedPendingDefect);
+      return;
     }
 
     updateDefectInState(defectId, (defect) => ({
@@ -635,6 +758,15 @@ export default function BoatLogPage({ params }) {
     setEditingDefectId((current) => (current === defectId ? null : current));
     clearDefectTextDraft(defectId);
     removeDefectFromState(defectId);
+
+    if (pendingDefectsRef.current.has(defectId)) {
+      pendingDefectsRef.current.delete(defectId);
+      window.clearTimeout(pendingRetryTimers.current.get(defectId));
+      pendingRetryTimers.current.delete(defectId);
+      persistPendingDefects();
+      setSaveError("");
+      return;
+    }
 
     try {
       await runSupabaseMutation(() => deleteDefect(defectId));
