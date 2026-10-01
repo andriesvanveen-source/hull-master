@@ -15,8 +15,9 @@ import {
 
 const STORAGE_KEY = "harbour-audit-buddy-audits";
 const DATABASE_NAME = "harbour-audit-buddy";
-const DATABASE_VERSION = 1;
+const DATABASE_VERSION = 2;
 const DATABASE_STORE = "audit-state";
+const DATABASE_AUDITS_STORE = "audits";
 const DELETED_AUDITS_KEY = "harbour-audit-buddy-deleted-audits";
 const HARBOUR_AUDIT_AREAS = [
   ...COMMON_DEFECT_AREAS.filter((area) => area !== GENERAL_AREA),
@@ -58,6 +59,15 @@ function openAuditDatabase() {
       if (!database.objectStoreNames.contains(DATABASE_STORE)) {
         database.createObjectStore(DATABASE_STORE);
       }
+      if (!database.objectStoreNames.contains(DATABASE_AUDITS_STORE)) {
+        const auditStore = database.createObjectStore(DATABASE_AUDITS_STORE, { keyPath: "id" });
+        if (database.objectStoreNames.contains(DATABASE_STORE)) {
+          const legacyRequest = request.transaction.objectStore(DATABASE_STORE).get(STORAGE_KEY);
+          legacyRequest.onsuccess = () => {
+            (Array.isArray(legacyRequest.result) ? legacyRequest.result : []).forEach((audit) => auditStore.put(audit));
+          };
+        }
+      }
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
@@ -67,9 +77,14 @@ function openAuditDatabase() {
 async function loadAuditsLocally() {
   const database = await openAuditDatabase();
   try {
+    const audits = await new Promise((resolve, reject) => {
+      const request = database.transaction(DATABASE_AUDITS_STORE, "readonly").objectStore(DATABASE_AUDITS_STORE).getAll();
+      request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : null);
+      request.onerror = () => reject(request.error);
+    });
+    if (audits?.length) return audits;
     return await new Promise((resolve, reject) => {
-      const transaction = database.transaction(DATABASE_STORE, "readonly");
-      const request = transaction.objectStore(DATABASE_STORE).get(STORAGE_KEY);
+      const request = database.transaction(DATABASE_STORE, "readonly").objectStore(DATABASE_STORE).get(STORAGE_KEY);
       request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : null);
       request.onerror = () => reject(request.error);
     });
@@ -82,8 +97,10 @@ async function saveAuditsLocally(audits) {
   const database = await openAuditDatabase();
   try {
     await new Promise((resolve, reject) => {
-      const transaction = database.transaction(DATABASE_STORE, "readwrite");
-      transaction.objectStore(DATABASE_STORE).put(audits, STORAGE_KEY);
+      const transaction = database.transaction(DATABASE_AUDITS_STORE, "readwrite");
+      const store = transaction.objectStore(DATABASE_AUDITS_STORE);
+      store.clear();
+      audits.forEach((audit) => store.put(audit));
       transaction.oncomplete = () => resolve();
       transaction.onerror = () => reject(transaction.error);
       transaction.onabort = () => reject(transaction.error);
@@ -93,8 +110,45 @@ async function saveAuditsLocally(audits) {
   }
 }
 
-function queueAuditSave(audits) {
-  auditSaveQueue = auditSaveQueue.catch(() => undefined).then(() => saveAuditsLocally(audits));
+async function saveAuditLocally(audit) {
+  const database = await openAuditDatabase();
+  try {
+    await new Promise((resolve, reject) => {
+      const transaction = database.transaction(DATABASE_AUDITS_STORE, "readwrite");
+      transaction.objectStore(DATABASE_AUDITS_STORE).put(audit);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+    });
+  } finally {
+    database.close();
+  }
+}
+
+async function deleteAuditLocally(auditId) {
+  const database = await openAuditDatabase();
+  try {
+    await new Promise((resolve, reject) => {
+      const transaction = database.transaction(DATABASE_AUDITS_STORE, "readwrite");
+      transaction.objectStore(DATABASE_AUDITS_STORE).delete(auditId);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+    });
+  } finally {
+    database.close();
+  }
+}
+
+function queueAuditSave(audits, changedAudit = null) {
+  auditSaveQueue = auditSaveQueue.catch(() => undefined).then(() => (
+    changedAudit ? saveAuditLocally(changedAudit) : saveAuditsLocally(audits)
+  ));
+  return auditSaveQueue;
+}
+
+function queueAuditDelete(auditId) {
+  auditSaveQueue = auditSaveQueue.catch(() => undefined).then(() => deleteAuditLocally(auditId));
   return auditSaveQueue;
 }
 
@@ -416,6 +470,9 @@ export default function HomePage() {
   const auditSyncVersions = useRef(new Map());
   const auditSyncQueues = useRef(new Map());
   const deletedAuditsRef = useRef([]);
+  const queuedRealtimeRefresh = useRef(false);
+  const requestSharedRefreshRef = useRef(null);
+  const syncRetryTimers = useRef(new Map());
 
   useEffect(() => {
     auditsRef.current = audits;
@@ -474,6 +531,7 @@ export default function HomePage() {
 
         // Intentionally retain localStorage as a read-only migration backup.
         if (isMounted) {
+          auditsRef.current = savedAudits;
           setAudits(savedAudits);
           setSyncStatus("Saved locally");
         }
@@ -495,28 +553,11 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    if (!loaded) {
-      return;
-    }
-
-    let isCurrent = true;
-    queueAuditSave(audits)
-      .catch(() => {
-        if (isCurrent) {
-          setError("This browser could not save the audit locally. Keep this page open and export the PDF before leaving.");
-        }
-      });
-
-    return () => {
-      isCurrent = false;
-    };
-  }, [audits, loaded]);
-
-  useEffect(() => {
     if (!loaded || sharedStartedRef.current) return;
     sharedStartedRef.current = true;
     let isMounted = true;
     let refreshTimer;
+    const retryTimers = syncRetryTimers.current;
 
     async function refreshSharedAudits({ migrateLocal = false } = {}) {
       try {
@@ -575,7 +616,7 @@ export default function HomePage() {
                   : entry);
                 auditsRef.current = syncedAudits;
                 setAudits(syncedAudits);
-                await queueAuditSave(syncedAudits);
+                await queueAuditSave(syncedAudits, syncedAudits.find((entry) => entry.id === audit.id));
               }
               pendingSyncIds.current.delete(audit.id);
             } catch {
@@ -598,16 +639,37 @@ export default function HomePage() {
       }
     }
 
+    function requestSharedRefresh() {
+      if (pendingSyncIds.current.size > 0) {
+        queuedRealtimeRefresh.current = true;
+        return;
+      }
+      window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => refreshSharedAudits(), 1000);
+    }
+
+    requestSharedRefreshRef.current = requestSharedRefresh;
     refreshSharedAudits({ migrateLocal: true });
     const unsubscribe = subscribeToHarbourAuditChanges(() => {
-      window.clearTimeout(refreshTimer);
-      refreshTimer = window.setTimeout(() => refreshSharedAudits(), 250);
+      requestSharedRefresh();
     });
+    const retryWhenOnline = () => {
+      auditsRef.current
+        .filter((audit) => pendingSyncIds.current.has(audit.id))
+        .forEach((audit) => void persistAndSync(auditsRef.current, audit));
+    };
+    window.addEventListener("online", retryWhenOnline);
     return () => {
       isMounted = false;
+      requestSharedRefreshRef.current = null;
       window.clearTimeout(refreshTimer);
+      retryTimers.forEach((timer) => window.clearTimeout(timer));
+      retryTimers.clear();
+      window.removeEventListener("online", retryWhenOnline);
       unsubscribe();
     };
+    // persistAndSync deliberately works from refs so the subscription is created only once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded]);
 
   const activeAudit = useMemo(() => audits.find((audit) => audit.id === activeId), [audits, activeId]);
@@ -624,10 +686,12 @@ export default function HomePage() {
     auditsRef.current = nextAudits;
     setAudits(nextAudits);
     pendingSyncIds.current.add(changedAudit.id);
+    window.clearTimeout(syncRetryTimers.current.get(changedAudit.id));
+    syncRetryTimers.current.delete(changedAudit.id);
     const syncVersion = (auditSyncVersions.current.get(changedAudit.id) || 0) + 1;
     auditSyncVersions.current.set(changedAudit.id, syncVersion);
     try {
-      await queueAuditSave(nextAudits);
+      await queueAuditSave(nextAudits, changedAudit);
       setSyncStatus("Saved locally — syncing...");
       const previousSync = auditSyncQueues.current.get(changedAudit.id) || Promise.resolve();
       const currentSync = previousSync.catch(() => undefined).then(() => syncHarbourAudit(changedAudit));
@@ -640,12 +704,24 @@ export default function HomePage() {
         : audit);
       auditsRef.current = syncedAudits;
       setAudits(syncedAudits);
-      await queueAuditSave(syncedAudits);
+      await queueAuditSave(syncedAudits, syncedAudits.find((audit) => audit.id === changedAudit.id));
       setSyncStatus("All audits synced");
       setError("");
+      if (pendingSyncIds.current.size === 0 && queuedRealtimeRefresh.current) {
+        queuedRealtimeRefresh.current = false;
+        requestSharedRefreshRef.current?.();
+      }
     } catch (syncError) {
       setSyncStatus("Saved locally — waiting to sync");
       setError(`Saved locally; sharing is pending. ${syncError.message || "Supabase is unavailable."}`);
+      if (auditSyncVersions.current.get(changedAudit.id) === syncVersion) {
+        const retryTimer = window.setTimeout(() => {
+          syncRetryTimers.current.delete(changedAudit.id);
+          const latestAudit = auditsRef.current.find((audit) => audit.id === changedAudit.id);
+          if (latestAudit) void persistAndSync(auditsRef.current, latestAudit);
+        }, 8000);
+        syncRetryTimers.current.set(changedAudit.id, retryTimer);
+      }
     }
   }
 
@@ -819,7 +895,7 @@ export default function HomePage() {
     deletedAuditsRef.current = [...deletedAuditsRef.current.filter((item) => item.id !== audit.id), audit];
     try { saveDeletedAuditTombstones(deletedAuditsRef.current); } catch { /* Keep the in-memory tombstone and continue the shared deletion. */ }
     try {
-      await queueAuditSave(nextAudits);
+      await queueAuditDelete(id);
       if (audit) await deleteSharedHarbourAudit(audit);
       setError("");
     } catch (deleteError) {
