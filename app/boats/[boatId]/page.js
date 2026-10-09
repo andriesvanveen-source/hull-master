@@ -315,13 +315,17 @@ export default function BoatLogPage({ params }) {
 
     return new Set(
       previousBoat.defects
+        .filter((defect) => !isGeneralArea(defect.area))
         .map((defect) => normalizeDefectText(defect.text))
         .filter(Boolean)
     );
   }, [previousBoat]);
   const shouldHighlightRepeats = showRepeatDefects && repeatedDefectTexts.size > 0;
   const repeatedDefectCount = shouldHighlightRepeats
-    ? boat.defects.filter((defect) => repeatedDefectTexts.has(normalizeDefectText(defect.text))).length
+    ? boat.defects.filter((defect) => (
+      !isGeneralArea(defect.area)
+      && repeatedDefectTexts.has(normalizeDefectText(defect.text))
+    )).length
     : 0;
   const areaOptions = useMemo(() => {
     const fromCommonDefects = Object.keys(commonDefectsByArea).filter((area) => area !== "all");
@@ -1153,7 +1157,9 @@ export default function BoatLogPage({ params }) {
             <span>Hull {boat.name}</span>
             <span>{reportDate ? reportDate.toLocaleString() : ""}</span>
             <span>Commissioning Engineer: {activeCommissioningEngineer}</span>
-            {showRepeatDefects && previousBoat ? <span>Repeat defects highlighted from {previousBoat.name}</span> : null}
+            {repeatedDefectCount > 0 ? (
+              <span>{repeatedDefectCount} repeat defect{repeatedDefectCount === 1 ? "" : "s"} highlighted from {previousBoat.name}</span>
+            ) : null}
           </div>
         </header>
 
@@ -1216,7 +1222,7 @@ export default function BoatLogPage({ params }) {
               <small>{previousBoat ? `Compare with ${previousBoat.name}` : "No previous boat"}</small>
             </span>
           </label>
-          {shouldHighlightRepeats ? (
+          {repeatedDefectCount > 0 ? (
             <div className="repeat-key">
               <span className="repeat-swatch"></span>
               <span>{repeatedDefectCount} repeat defect{repeatedDefectCount === 1 ? "" : "s"} from {previousBoat.name}</span>
@@ -1268,7 +1274,9 @@ export default function BoatLogPage({ params }) {
                       </td>
                     </tr>
                     {defects.map((defect) => {
-                      const isRepeatDefect = shouldHighlightRepeats && repeatedDefectTexts.has(normalizeDefectText(defect.text));
+                      const isRepeatDefect = shouldHighlightRepeats
+                        && !isGeneralArea(defect.area)
+                        && repeatedDefectTexts.has(normalizeDefectText(defect.text));
                       const defectDraftValue = defectTextDrafts[defect.id] ?? defect.text;
 
                       return (
@@ -1481,7 +1489,9 @@ export default function BoatLogPage({ params }) {
                       </tr>
                     ) : (
                       defects.map((defect) => {
-                        const isRepeatDefect = shouldHighlightRepeats && repeatedDefectTexts.has(normalizeDefectText(defect.text));
+                        const isRepeatDefect = shouldHighlightRepeats
+                          && !isGeneralArea(defect.area)
+                          && repeatedDefectTexts.has(normalizeDefectText(defect.text));
 
                         return (
                         <tr className={`audit-entry-row${isRepeatDefect ? " repeat-defect-row" : ""}`} key={`${defect.id}-report`}>
