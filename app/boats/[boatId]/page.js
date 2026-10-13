@@ -15,6 +15,7 @@ import {
   getCommonDefectAreaNames,
   isGeneralArea,
   normalizeBoatArea,
+  normalizeDiscipline,
   orderBoatAreas
 } from "../../../lib/constants";
 import { exportBoatReport } from "../../../lib/pdfReport";
@@ -37,6 +38,7 @@ import {
 
 const boatCacheKey = (boatId) => `hull-master:boat-cache:v1:${boatId}`;
 const pendingDefectsKey = (boatId) => `hull-master:pending-defects:v1:${boatId}`;
+const completedAreasBeforeAllKey = (boatId) => `hull-master:completed-before-all:v1:${boatId}`;
 const ADDITIONAL_GENERAL_DEFECTS = [
   { text: "Insulate Chiller coolant pipe elbows, fitting and valves", discipline: "PLUM" }
 ];
@@ -44,7 +46,9 @@ const ADDITIONAL_GENERAL_DEFECTS = [
 function loadPendingDefects(boatId) {
   try {
     const pending = JSON.parse(window.localStorage.getItem(pendingDefectsKey(boatId)) || "[]");
-    return Array.isArray(pending) ? pending : [];
+    return Array.isArray(pending)
+      ? pending.map((defect) => ({ ...defect, discipline: normalizeDiscipline(defect.discipline) }))
+      : [];
   } catch {
     return [];
   }
@@ -63,7 +67,10 @@ function mergePendingDefects(state, boatId, pendingDefects) {
       return {
         ...boat,
         defects: [
-          ...(boat.defects || []),
+          ...(boat.defects || []).map((defect) => ({
+            ...defect,
+            discipline: normalizeDiscipline(defect.discipline)
+          })),
           ...pendingDefects.filter((defect) => !storedIds.has(defect.id))
         ]
       };
@@ -103,6 +110,7 @@ export default function BoatLogPage({ params }) {
   const pendingDefectsRef = useRef(new Map());
   const syncingPendingDefects = useRef(new Set());
   const pendingRetryTimers = useRef(new Map());
+  const completedAreasBeforeAllRef = useRef([]);
 
   async function runSupabaseMutation(mutation) {
     pendingMutations.current += 1;
@@ -339,10 +347,17 @@ export default function BoatLogPage({ params }) {
     if (!activeBoatId) return;
     try {
       const saved = JSON.parse(window.localStorage.getItem(localDraftKey) || "{}");
-      setDrafts(saved.drafts || {});
+      setDrafts(Object.fromEntries(Object.entries(saved.drafts || {}).map(([area, draft]) => [
+        area,
+        { ...draft, discipline: normalizeDiscipline(draft?.discipline) }
+      ])));
       setDefectTextDrafts(saved.defectTextDrafts || {});
-      setDefectDisciplineDrafts(saved.defectDisciplineDrafts || {});
+      setDefectDisciplineDrafts(Object.fromEntries(Object.entries(saved.defectDisciplineDrafts || {}).map(([id, discipline]) => [
+        id,
+        normalizeDiscipline(discipline)
+      ])));
       setBlankRowsByArea(saved.blankRowsByArea || {});
+      setShowRepeatDefects(Boolean(saved.showRepeatDefects));
       if (typeof saved.newAreaName === "string") setNewAreaName(saved.newAreaName);
     } catch {
       window.localStorage.removeItem(localDraftKey);
@@ -358,9 +373,20 @@ export default function BoatLogPage({ params }) {
       defectTextDrafts,
       defectDisciplineDrafts,
       blankRowsByArea,
-      newAreaName
+      newAreaName,
+      showRepeatDefects
     }));
-  }, [activeBoatId, localDraftKey, localDraftBoatId, drafts, defectTextDrafts, defectDisciplineDrafts, blankRowsByArea, newAreaName]);
+  }, [activeBoatId, localDraftKey, localDraftBoatId, drafts, defectTextDrafts, defectDisciplineDrafts, blankRowsByArea, newAreaName, showRepeatDefects]);
+
+  useEffect(() => {
+    if (!activeBoatId) return;
+    try {
+      const savedAreas = JSON.parse(window.localStorage.getItem(completedAreasBeforeAllKey(activeBoatId)) || "[]");
+      completedAreasBeforeAllRef.current = Array.isArray(savedAreas) ? savedAreas : [];
+    } catch {
+      completedAreasBeforeAllRef.current = [];
+    }
+  }, [activeBoatId]);
 
   useEffect(() => {
     if (activeBoatName) {
@@ -601,7 +627,22 @@ export default function BoatLogPage({ params }) {
       return;
     }
 
-    const nextCompletedAreas = shouldComplete ? [...boatAreas] : [];
+    let nextCompletedAreas;
+    if (shouldComplete) {
+      const previousCompletedAreas = (boat.completedAreas || []).filter((area) => boatAreas.includes(area));
+      completedAreasBeforeAllRef.current = previousCompletedAreas;
+      try {
+        window.localStorage.setItem(
+          completedAreasBeforeAllKey(boat.id),
+          JSON.stringify(previousCompletedAreas)
+        );
+      } catch {
+        // The in-memory recovery selection remains available for this session.
+      }
+      nextCompletedAreas = [...boatAreas];
+    } else {
+      nextCompletedAreas = completedAreasBeforeAllRef.current.filter((area) => boatAreas.includes(area));
+    }
     updateBoatInState({ ...boat, completedAreas: nextCompletedAreas });
     setIsSavingAreaProgress(true);
 
@@ -647,7 +688,7 @@ export default function BoatLogPage({ params }) {
     const nextDefect = {
       id: globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
       text: draft.text.trim(),
-      discipline: draft.discipline || "",
+      discipline: normalizeDiscipline(draft.discipline),
       area,
       callbackRequestedAt: "",
       createdAt: now,
