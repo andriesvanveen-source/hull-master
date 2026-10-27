@@ -8,7 +8,9 @@ import { COMMISSIONING_ENGINEERS, COMMON_DEFECT_AREAS, GENERAL_AREA } from "../.
 import { confirmProtectedAuditDelete } from "../../lib/protectedAuditDelete";
 import {
   deleteSharedHarbourAudit,
+  loadSharedHarbourAudit,
   loadSharedHarbourAudits,
+  resolveHarbourAuditPhotoDataUrl,
   subscribeToHarbourAuditChanges,
   syncHarbourAudit
 } from "../../lib/harbourAuditSupabase";
@@ -180,6 +182,12 @@ function auditDateTimestamp(audit) {
   const parsedDate = Date.parse(dateText);
   if (Number.isFinite(parsedDate)) return parsedDate;
   return Date.parse(audit.updatedAt || "") || 0;
+}
+
+function auditDefectCount(audit) {
+  return Number.isFinite(Number(audit?.defectCount))
+    ? Number(audit.defectCount)
+    : (audit?.defects || []).length;
 }
 
 function uid() {
@@ -373,6 +381,18 @@ function addNoPhotoDefect(doc, defect, defectNumber, y, layout, logoDataUrl) {
 }
 
 async function exportAuditPdf(audit) {
+  const hydratedDefects = [];
+  for (const defect of audit.defects || []) {
+    const hydratedPhotos = [];
+    for (const photo of defect.photos || []) {
+      hydratedPhotos.push({
+        ...photo,
+        dataUrl: await resolveHarbourAuditPhotoDataUrl(photo)
+      });
+    }
+    hydratedDefects.push({ ...defect, photos: hydratedPhotos });
+  }
+  const exportAudit = { ...audit, defects: hydratedDefects };
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const margin = 46;
@@ -384,8 +404,8 @@ async function exportAuditPdf(audit) {
   };
   const logoDataUrl = await loadPdfLogo();
 
-  const photoDefects = audit.defects.filter((defect) => defect.photos.length > 0);
-  const noPhotoDefects = audit.defects.filter((defect) => defect.photos.length === 0);
+  const photoDefects = exportAudit.defects.filter((defect) => defect.photos.length > 0);
+  const noPhotoDefects = exportAudit.defects.filter((defect) => defect.photos.length === 0);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(22);
@@ -422,7 +442,7 @@ async function exportAuditPdf(audit) {
     defectNumber += 1;
   }
 
-  if (!audit.defects.length) {
+  if (!exportAudit.defects.length) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(12);
     doc.text("No defects recorded.", margin, y);
@@ -510,6 +530,8 @@ export default function HomePage() {
         ].filter((audit) => !locallyDeletedIds.has(audit.id)).map((audit) => ({
           ...audit,
           auditor: audit.auditor || "",
+          defectCount: audit.defectCount ?? (audit.defects || []).length,
+          detailsLoaded: audit.detailsLoaded ?? true,
           pendingDefectIds: audit.pendingDefectIds || [],
           deletedDefectIds: audit.deletedDefectIds || [],
           updatedAt: audit.updatedAt || new Date().toISOString(),
@@ -533,7 +555,9 @@ export default function HomePage() {
         if (isMounted) {
           auditsRef.current = savedAudits;
           setAudits(savedAudits);
-          setSyncStatus("Saved locally");
+          setSyncStatus(savedAudits.length
+            ? "Saved locally · loading shared updates..."
+            : "Loading shared audits...");
         }
       } catch {
         if (isMounted) {
@@ -581,9 +605,20 @@ export default function HomePage() {
             const remoteTime = Date.parse(remoteAudit.updatedAt || "") || 0;
             const hasPendingChanges = (localAudit.pendingDefectIds || []).length > 0
               || (localAudit.deletedDefectIds || []).length > 0;
-            return pendingSyncIds.current.has(remoteAudit.id) || hasPendingChanges || localTime > remoteTime
-              ? localAudit
-              : remoteAudit;
+            if (pendingSyncIds.current.has(remoteAudit.id) || hasPendingChanges || localTime > remoteTime) {
+              return localAudit;
+            }
+            if (localAudit.detailsLoaded !== false && localTime >= remoteTime) {
+              return {
+                ...localAudit,
+                title: remoteAudit.title,
+                auditor: remoteAudit.auditor,
+                createdAt: remoteAudit.createdAt,
+                updatedAt: remoteAudit.updatedAt,
+                defectCount: remoteAudit.defectCount
+              };
+            }
+            return remoteAudit;
           }),
           ...localAudits.filter((audit) => !remoteIds.has(audit.id) && !deletedIds.has(audit.id))
         ];
@@ -739,6 +774,8 @@ export default function HomePage() {
       auditor,
       createdAt: todayText(),
       updatedAt,
+      defectCount: 0,
+      detailsLoaded: true,
       defects: []
     };
     const nextAudits = [audit, ...auditsRef.current];
@@ -859,6 +896,7 @@ export default function HomePage() {
       changedAudit = {
         ...audit,
         updatedAt,
+        defectCount: auditDefectCount(audit) + 1,
         syncScopeVersion: 1,
         pendingDefectIds: [...new Set([...(audit.pendingDefectIds || []), changedDefectId])],
         defects: [...audit.defects, { id: changedDefectId, area: selectedArea, description: description.trim(), photos, createdAt: updatedAt, updatedAt }]
@@ -877,6 +915,7 @@ export default function HomePage() {
     const changedAudit = {
       ...activeAudit,
       updatedAt: new Date().toISOString(),
+      defectCount: Math.max(0, auditDefectCount(activeAudit) - 1),
       syncScopeVersion: 1,
       deletedDefectIds: [...new Set([...(activeAudit.deletedDefectIds || []), editingDefectId])],
       defects: activeAudit.defects.filter((item) => item.id !== editingDefectId)
@@ -903,15 +942,55 @@ export default function HomePage() {
     }
   }
 
+  async function ensureAuditDetails(audit) {
+    const latestAudit = auditsRef.current.find((entry) => entry.id === audit.id) || audit;
+    if (latestAudit.detailsLoaded !== false) return latestAudit;
+
+    setSyncStatus("Loading audit details...");
+    try {
+      const sharedAudit = await loadSharedHarbourAudit(audit.id);
+      const currentAudit = auditsRef.current.find((entry) => entry.id === audit.id);
+      const hasPendingChanges = currentAudit && (
+        pendingSyncIds.current.has(currentAudit.id)
+        || (currentAudit.pendingDefectIds || []).length > 0
+        || (currentAudit.deletedDefectIds || []).length > 0
+      );
+      const completeAudit = hasPendingChanges && currentAudit.detailsLoaded !== false
+        ? currentAudit
+        : sharedAudit;
+      const nextAudits = auditsRef.current.map((entry) => entry.id === audit.id ? completeAudit : entry);
+      auditsRef.current = nextAudits;
+      setAudits(nextAudits);
+      await queueAuditSave(nextAudits, completeAudit);
+      setSyncStatus("All audits synced");
+      setError("");
+      return completeAudit;
+    } catch (loadError) {
+      setSyncStatus("Saved locally — waiting to sync");
+      setError(`This audit could not be downloaded. ${loadError.message || "Check the connection and try again."}`);
+      throw loadError;
+    }
+  }
+
+  async function openAudit(audit) {
+    try {
+      const completeAudit = await ensureAuditDetails(audit);
+      setActiveId(completeAudit.id);
+    } catch {
+      // Keep the audit list visible so the user can retry without a blank detail page.
+    }
+  }
+
   async function handleExport(audit) {
     try {
       setError("");
-      await exportAuditPdf(audit);
+      const completeAudit = await ensureAuditDetails(audit);
+      await exportAuditPdf(completeAudit);
     } catch (exportError) {
       if (exportError?.name === "AbortError") {
         return;
       }
-      setError("The PDF export failed. Try using JPG or PNG photos and export again.");
+      setError("The PDF export failed. Check the connection and try again.");
     }
   }
 
@@ -1005,7 +1084,7 @@ export default function HomePage() {
             {photos.length > 0 && (
               <div className="photo-strip">
                 {photos.map((photo) => (
-                  <img src={photo.dataUrl} alt="" key={photo.id} />
+                  <img src={photo.dataUrl} alt="" loading="lazy" decoding="async" key={photo.id} />
                 ))}
               </div>
             )}
@@ -1050,7 +1129,7 @@ export default function HomePage() {
                     <span>{defect.photos.length} photos</span>
                     <div className="thumbs">
                       {defect.photos.map((photo) => (
-                        <img src={photo.dataUrl} alt="" key={photo.id} />
+                        <img src={photo.dataUrl} alt="" loading="lazy" decoding="async" key={photo.id} />
                       ))}
                     </div>
                   </article>
@@ -1112,9 +1191,9 @@ export default function HomePage() {
           <div className="audit-list">
             {visibleAudits.map((audit) => (
               <article className="card audit-row" key={audit.id}>
-                <button className="audit-main" type="button" onClick={() => setActiveId(audit.id)}>
+                <button className="audit-main" type="button" onClick={() => openAudit(audit)}>
                   <strong>{audit.title}</strong>
-                  <span>{audit.defects.length} defects · {audit.auditor || "Auditor not specified"} · {audit.createdAt}</span>
+                  <span>{auditDefectCount(audit)} defects · {audit.auditor || "Auditor not specified"} · {audit.createdAt}</span>
                 </button>
                 <div className="audit-actions">
                   <button className="outline-small" type="button" onClick={() => handleExport(audit)}>
